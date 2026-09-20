@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #14213d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Design system palette */
+  --color-primary: #0f1b36;
+  --color-primary-hover: #172a52;
+  --color-accent: #1677ff;
+  --color-accent-hover: #0f62d6;
+  --color-accent-light: #eaf3ff;
+  --color-ink: #14213d;
+  --color-muted: #6f82a3;
+  --color-placeholder: #8fa2c0;
+  --color-surface: #f7f9fc;
+  --color-input: #d7e1ef;
+  --color-card: #dce5f0;
+  --color-error: #e53935;
+  --color-error-hover: #c62828;
+  --color-error-light: #fdecea;
+  --color-success: #1677ff;
+  --color-btn-secondary-text: #23395d;
+  --color-btn-secondary-border: #c9d6e8;
+
+  /* Storefront palette: charcoal + Amil yellow, red for deals, green for stock/WhatsApp */
+  --color-charcoal: #15171c;
+  --color-charcoal-soft: #22252c;
+  --color-charcoal-line: #33373f;
+  --color-amil: #ffc60b;
+  --color-amil-hover: #f0b500;
+  --color-amil-soft: #fff6d6;
+  --color-deal: #e11d2e;
+  --color-deal-soft: #fde8ea;
+  --color-stock: #15803d;
+  --color-stock-soft: #e3f5e9;
+  --color-wa: #1fa855;
+  --color-wa-hover: #188a45;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
