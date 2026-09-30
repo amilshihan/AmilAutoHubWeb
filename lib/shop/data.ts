@@ -65,6 +65,12 @@ function compatLabel(c: CompatRow): string {
   return `${c.make}${c.model ? " " + c.model : " (all models)"}${years}`;
 }
 
+// Banner links may only point inside the site or to http(s) addresses.
+function safeLink(v: unknown): string | null {
+  const s = str(v);
+  return s && /^(\/(?!\/)|https?:\/\/)/i.test(s) ? s : null;
+}
+
 function safeImageUrl(v: unknown): string | null {
   const s = str(v);
   return s && /^https?:\/\//i.test(s) ? s : null;
@@ -435,6 +441,10 @@ export type PublicOrder = {
   paymentMethod: string;
   paymentStatus: string;
   subtotal: number;
+  discount: number;
+  couponCode: string | null;
+  courier: string | null;
+  trackingNumber: string | null;
   deliveryFee: number;
   total: number;
   createdAt: string;
@@ -462,6 +472,10 @@ async function hydrateOrder(row: Row): Promise<PublicOrder> {
     paymentMethod: row.payment_method as string,
     paymentStatus: str(row.payment_status) ?? "unpaid",
     subtotal: num(row.subtotal),
+    discount: num(row.discount),
+    couponCode: str(row.coupon_code),
+    courier: str(row.courier),
+    trackingNumber: str(row.tracking_number),
     deliveryFee: num(row.delivery_fee),
     total: num(row.total),
     createdAt: row.created_at as string,
@@ -493,3 +507,37 @@ export async function findOrder(orderNumber: string, phone: string): Promise<Pub
   const tail = (s: string) => digitsOnly(s).slice(-9);
   return tail(data.customer_phone as string) === tail(phone) ? hydrateOrder(data as Row) : null;
 }
+
+// ─── Homepage banners ────────────────────────────────────────
+
+export type PublicBanner = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  linkUrl: string | null;
+  buttonLabel: string | null;
+};
+
+export const getBanners = ttlCache<PublicBanner[]>(60_000, async () => {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("site_banners")
+    .select("id, title, subtitle, image_url, link_url, button_label, starts_at, ends_at")
+    .eq("is_active", true)
+    .order("sort_order")
+    .order("created_at", { ascending: false });
+  if (error) return []; // table not created yet (migration 0017 pending)
+  const now = Date.now();
+  return (data ?? [])
+    .filter((b) => (!b.starts_at || Date.parse(b.starts_at as string) <= now) && (!b.ends_at || Date.parse(b.ends_at as string) >= now))
+    .slice(0, 3)
+    .map((b) => ({
+      id: b.id as string,
+      title: b.title as string,
+      subtitle: str(b.subtitle),
+      imageUrl: safeImageUrl(b.image_url),
+      linkUrl: safeLink(b.link_url),
+      buttonLabel: str(b.button_label),
+    }));
+});

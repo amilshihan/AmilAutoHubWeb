@@ -4,6 +4,9 @@ import { availablePaymentMethods, getStoreSettings } from "@/lib/shop/settings";
 
 export const metadata: Metadata = { title: "Checkout" };
 
+// Delivery charges and payment methods are edited in the admin; refresh them regularly.
+export const revalidate = 30;
+
 export default async function CheckoutPage() {
   const settings = await getStoreSettings();
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  getBanners,
   getCollectionCounts,
   getDeals,
   getPopular,
@@ -10,6 +11,7 @@ import { COLLECTION_BY_SLUG, COLLECTIONS } from "@/lib/shop/collections";
 import { waLink } from "@/lib/shop/whatsapp";
 import HeroArt from "@/components/shop/HeroArt";
 import VehicleFinder from "@/components/shop/VehicleFinder";
+import HomeBanners from "@/components/shop/HomeBanners";
 import ProductCard from "@/components/shop/ProductCard";
 import {
   ChevronIcon,
@@ -38,12 +40,13 @@ function SectionHead({ title, href, cta = "View all" }: { title: string; href?: 
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const [vehicles, deals, popular, counts, shop] = await Promise.all([
+  const [vehicles, deals, popular, counts, shop, banners] = await Promise.all([
     getVehicleCatalog(),
     getDeals(8),
     getPopular(8),
     getCollectionCounts(),
     getShopInfo(),
+    getBanners(),
   ]);
 
   const featured = ["engine-oils", "filters", "car-parts", "tools"] as const;
@@ -95,6 +98,8 @@ export default async function HomePage() {
           subtitle="Select your vehicle and we'll show what fits."
         />
       </section>
+
+      <HomeBanners banners={banners} />
 
       {/* Shop by category */}
       <section className="mx-auto max-w-7xl px-4 pt-14">

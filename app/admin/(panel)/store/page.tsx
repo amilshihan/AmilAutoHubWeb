@@ -9,7 +9,7 @@ import StoreSettingsClient from "@/components/store/StoreSettingsClient";
 
 export default async function OnlineStorePage() {
   const { profile } = await getCurrentUserAndProfile();
-  if (!isAdmin(profile)) redirect("/admin/orders");
+  if (!isAdmin(profile)) redirect("/admin");
 
   const supabase = await createClient();
   const { data, error } = await supabase.from("store_settings").select("*").maybeSingle();

@@ -23,7 +23,7 @@ export default function AdminLoginPage() {
       setError("Incorrect email or password. Please try again.");
       return;
     }
-    router.push("/admin/orders");
+    router.push("/admin");
     router.refresh();
   }
 

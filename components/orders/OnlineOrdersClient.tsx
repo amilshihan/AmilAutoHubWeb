@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -23,6 +24,10 @@ export type OnlineOrder = {
   payment_method: string;
   payment_status?: string;
   payment_reference?: string | null;
+  discount?: number;
+  coupon_code?: string | null;
+  courier?: string | null;
+  tracking_number?: string | null;
   subtotal: number;
   delivery_fee: number;
   total: number;
@@ -218,6 +223,14 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                             <td className="py-1.5 text-right tabular-nums">{formatLKR(Number(i.line_total))}</td>
                           </tr>
                         ))}
+                        {Number(o.discount ?? 0) > 0 && (
+                          <tr className="border-t border-card">
+                            <td colSpan={3} className="py-1.5 text-right text-muted">
+                              Discount{o.coupon_code ? ` (${o.coupon_code})` : ""}
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums text-green-700">- {formatLKR(Number(o.discount))}</td>
+                          </tr>
+                        )}
                         <tr className="border-t border-card">
                           <td colSpan={3} className="py-1.5 text-right text-muted">
                             Delivery
@@ -233,7 +246,18 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                       </tbody>
                     </table>
 
+                    {o.fulfilment === "delivery" && "courier" in o && (
+                      <ShippingEditor order={o} onError={setError} onSaved={() => router.refresh()} />
+                    )}
+
                     <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/admin/orders/${o.id}/invoice`}
+                        target="_blank"
+                        className="rounded-lg border border-btn-secondary-border px-4 py-2 text-sm font-semibold text-btn-secondary-text hover:bg-surface"
+                      >
+                        Print invoice
+                      </Link>
                       {step && (
                         <button
                           disabled={busyId === o.id}
@@ -289,6 +313,64 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function ShippingEditor({
+  order,
+  onError,
+  onSaved,
+}: {
+  order: OnlineOrder;
+  onError: (message: string | null) => void;
+  onSaved: () => void;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [courier, setCourier] = useState(order.courier ?? "");
+  const [tracking, setTracking] = useState(order.tracking_number ?? "");
+  const [saving, setSaving] = useState(false);
+  const dirty = courier !== (order.courier ?? "") || tracking !== (order.tracking_number ?? "");
+
+  async function save() {
+    setSaving(true);
+    onError(null);
+    const { error } = await supabase
+      .from("online_orders")
+      .update({ courier: courier.trim() || null, tracking_number: tracking.trim() || null, updated_at: new Date().toISOString() })
+      .eq("id", order.id);
+    setSaving(false);
+    if (error) onError(error.message);
+    else onSaved();
+  }
+
+  const input =
+    "rounded-lg border border-input bg-surface px-3 py-2 text-sm text-ink placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-light";
+  return (
+    <div className="flex flex-wrap items-end gap-3 rounded-lg bg-surface p-3">
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Courier</label>
+        <input list="couriers" value={courier} onChange={(e) => setCourier(e.target.value)} placeholder="e.g. Domex" className={`${input} mt-1 w-40`} />
+        <datalist id="couriers">
+          <option value="Domex" />
+          <option value="Pronto" />
+          <option value="Koombiyo" />
+          <option value="Sri Lanka Post" />
+          <option value="Own delivery" />
+        </datalist>
+      </div>
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Tracking number</label>
+        <input value={tracking} onChange={(e) => setTracking(e.target.value)} className={`${input} mt-1 w-52`} />
+      </div>
+      <button
+        onClick={save}
+        disabled={!dirty || saving}
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+      >
+        {saving ? "Saving…" : "Save shipping"}
+      </button>
+      <span className="pb-2 text-xs text-muted">Customers see this on their order page.</span>
     </div>
   );
 }

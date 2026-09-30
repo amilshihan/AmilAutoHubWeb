@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useCart } from "@/components/shop/CartProvider";
-import { placeOrder, type PlaceOrderResult } from "@/app/(shop)/checkout/actions";
+import { placeOrder, previewCoupon, type PlaceOrderResult } from "@/app/(shop)/checkout/actions";
 import { PAYMENT_LABEL, SRI_LANKA_DISTRICTS, type DeliveryZoneId } from "@/lib/shop/config";
 import type { BankTransferConfig, DeliveryZoneConfig, PaymentMethodId } from "@/lib/shop/settings-types";
 import { formatLKR } from "@/lib/shop/format";
@@ -38,6 +38,10 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
   const [fulfilment, setFulfilment] = useState<"delivery" | "pickup">("delivery");
   const [zoneChoice, setZone] = useState<DeliveryZoneId | "">("");
   const [methodChoice, setMethod] = useState<PaymentMethodId | "">("");
+  const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -56,7 +60,22 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
   const methods = options.methods[fulfilment];
   const paymentMethod = methods.includes(methodChoice as PaymentMethodId) ? (methodChoice as PaymentMethodId) : methods[0];
   const canOrder = paymentMethod !== undefined && (fulfilment === "pickup" || selectedZone !== undefined);
-  const total = subtotal + deliveryFee;
+  const discount = Math.min(coupon?.discount ?? 0, subtotal);
+  const total = subtotal - discount + deliveryFee;
+
+  async function applyCoupon() {
+    setCouponMsg(null);
+    setCouponBusy(true);
+    const res = await previewCoupon(couponInput, subtotal);
+    setCouponBusy(false);
+    if (res.ok) {
+      setCoupon({ code: res.code, discount: res.discount });
+      setCouponInput("");
+    } else {
+      setCoupon(null);
+      setCouponMsg(res.error);
+    }
+  }
 
   if (!ready) {
     return <div className="mx-auto max-w-7xl px-4 py-16 text-center text-charcoal/50">Loading checkout...</div>;
@@ -85,6 +104,7 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
           fulfilment,
           zone: fulfilment === "delivery" ? zone : "",
           paymentMethod,
+          couponCode: coupon?.code ?? "",
           lines: lines.map((l) => ({ id: l.id, qty: l.qty })),
         });
       } catch {
@@ -330,11 +350,67 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
               </li>
             ))}
           </ul>
+          <div className="border-t border-charcoal/10 pt-4">
+            {coupon ? (
+              <div className="flex items-center justify-between rounded-lg bg-stock-soft px-3 py-2 text-sm">
+                <span className="font-semibold text-stock">
+                  {coupon.code} applied
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCoupon(null)}
+                  className="text-xs font-semibold text-charcoal/60 underline hover:text-charcoal"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div>
+                <label htmlFor="coupon" className="mb-1 block text-xs font-bold uppercase tracking-wide text-charcoal/60">
+                  Coupon code
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="coupon"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (couponInput.trim()) void applyCoupon();
+                      }
+                    }}
+                    placeholder="Enter code"
+                    className="min-w-0 flex-1 rounded-lg border border-charcoal/20 bg-white px-3 py-2 text-sm uppercase focus:border-charcoal focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={couponBusy || !couponInput.trim()}
+                    onClick={() => void applyCoupon()}
+                    className="rounded-lg bg-charcoal px-4 py-2 text-sm font-bold text-white hover:bg-charcoal-soft disabled:opacity-50"
+                  >
+                    {couponBusy ? "..." : "Apply"}
+                  </button>
+                </div>
+                {couponMsg && (
+                  <p role="alert" className="mt-1.5 text-xs font-semibold text-deal">
+                    {couponMsg}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="space-y-2 border-t border-charcoal/10 pt-4 text-sm">
             <div className="flex justify-between">
               <span className="text-charcoal/65">Subtotal</span>
               <span className="font-semibold tabular-nums">{formatLKR(subtotal)}</span>
             </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-stock">
+                <span>Discount</span>
+                <span className="font-semibold tabular-nums">- {formatLKR(discount)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-charcoal/65">{fulfilment === "delivery" ? "Delivery" : "Pickup"}</span>
               <span className="font-semibold tabular-nums">{deliveryFee ? formatLKR(deliveryFee) : "Free"}</span>

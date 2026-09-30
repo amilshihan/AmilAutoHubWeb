@@ -1,14 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { cardSurface, helperText, inputBase } from "@/lib/ui";
+import { btnPrimary, cardSurface, helperText, inputBase } from "@/lib/ui";
 import { formatLKR } from "@/lib/shop/format";
+import ProductFormModal from "@/components/admin/ProductFormModal";
 
 export type WebProduct = {
   id: string;
   name: string;
   sku: string | null;
+  barcode: string | null;
+  description: string | null;
+  category_id: string | null;
+  unit: string;
   sell_price: number;
   retail_price: number;
   qty_on_hand: number;
@@ -33,7 +39,23 @@ const FILTERS: { id: Filter; label: string }[] = [
 
 const PAGE = 40;
 
-export default function WebsiteProductsClient({ products }: { products: WebProduct[] }) {
+function friendlyDeleteError(name: string, error: { code?: string; message: string }): string {
+  if (error.code === "23503") {
+    return `Can't delete "${name}" — it has order, sale or stock history. Hide it from the website instead.`;
+  }
+  return `${name}: ${error.message}`;
+}
+
+export default function WebsiteProductsClient({
+  products,
+  categoryOptions,
+  categoryPathById,
+}: {
+  products: WebProduct[];
+  categoryOptions: string[];
+  categoryPathById: Record<string, string>;
+}) {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [rows, setRows] = useState(products);
   const [query, setQuery] = useState("");
@@ -41,6 +63,10 @@ export default function WebsiteProductsClient({ products }: { products: WebProdu
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<WebProduct | "new" | null>(null);
+  const [deleting, setDeleting] = useState<WebProduct | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -80,14 +106,53 @@ export default function WebsiteProductsClient({ products }: { products: WebProdu
     }
   }
 
+  function handleSaved(saved: WebProduct) {
+    setRows((rs) => {
+      const exists = rs.some((r) => r.id === saved.id);
+      return exists ? rs.map((r) => (r.id === saved.id ? saved : r)) : [saved, ...rs];
+    });
+    setEditing(null);
+    router.refresh();
+  }
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    const { error } = await supabase.from("parts").delete().eq("id", deleting.id);
+    setDeleteBusy(false);
+    if (error) {
+      setDeleteError(friendlyDeleteError(deleting.name, error));
+      return;
+    }
+    setRows((rs) => rs.filter((r) => r.id !== deleting.id));
+    setDeleting(null);
+    router.refresh();
+  }
+
+  async function hideInstead() {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    const { error } = await supabase.from("parts").update({ is_online: false }).eq("id", deleting.id);
+    setDeleteBusy(false);
+    if (error) return setDeleteError(error.message);
+    setRows((rs) => rs.map((r) => (r.id === deleting.id ? { ...r, is_online: false } : r)));
+    setDeleting(null);
+    router.refresh();
+  }
+
   return (
     <div className="p-6 space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-ink">Website products</h1>
-        <p className="text-sm text-muted mt-1">
-          Control what the website shows. Prices and stock come from the POS; create or edit those there. Set a{" "}
-          <strong>Compare-at price</strong> above the selling price to show a discount badge.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">Website products</h1>
+          <p className="text-sm text-muted mt-1">
+            Add, edit or remove products. Set a <strong>Compare-at price</strong> above the selling price to show a discount badge.
+          </p>
+        </div>
+        <button className={btnPrimary} onClick={() => setEditing("new")}>
+          New product
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -138,13 +203,16 @@ export default function WebsiteProductsClient({ products }: { products: WebProdu
               <th className="px-3 py-3 font-semibold text-center">On website</th>
               <th className="px-3 py-3 font-semibold text-center">Featured</th>
               <th className="px-3 py-3 font-semibold">Image URL</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
             {shown.map((p) => (
               <tr key={p.id} className={`border-b border-card last:border-0 ${savingId === p.id ? "opacity-60" : ""}`}>
                 <td className="px-4 py-2.5">
-                  <div className="font-semibold text-ink">{p.name}</div>
+                  <button className="text-left font-semibold text-ink hover:underline" onClick={() => setEditing(p)}>
+                    {p.name}
+                  </button>
                   <div className="text-xs text-muted">
                     {p.sku ? `SKU ${p.sku}` : "No SKU"}
                     {p.is_drum ? " · Drum (never shown online)" : ""}
@@ -196,11 +264,27 @@ export default function WebsiteProductsClient({ products }: { products: WebProdu
                     className={`${inputBase} w-56 py-1.5`}
                   />
                 </td>
+                <td className="px-4 py-2.5 text-right">
+                  <div className="flex justify-end gap-3 text-sm font-semibold">
+                    <button className="text-accent hover:underline" onClick={() => setEditing(p)}>
+                      Edit
+                    </button>
+                    <button
+                      className="text-error hover:underline"
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDeleting(p);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
             {shown.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-muted">
+                <td colSpan={8} className="px-4 py-10 text-center text-muted">
                   No products match.
                 </td>
               </tr>
@@ -228,6 +312,54 @@ export default function WebsiteProductsClient({ products }: { products: WebProdu
           >
             Next
           </button>
+        </div>
+      )}
+
+      {editing && (
+        <ProductFormModal
+          product={editing === "new" ? null : { ...editing, categoryPath: editing.category_id ? (categoryPathById[editing.category_id] ?? "") : "" }}
+          categoryOptions={categoryOptions}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
+      )}
+
+      {deleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !deleteBusy && setDeleting(null)}>
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-ink">Delete &quot;{deleting.name}&quot;?</h2>
+            <p className="mt-2 text-sm text-muted">This can&apos;t be undone.</p>
+            {deleteError && (
+              <div role="alert" className="mt-3 rounded-lg border border-error/30 bg-error-light p-3 text-sm text-error">
+                {deleteError}
+              </div>
+            )}
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                className="rounded-lg bg-error px-4 py-2 text-sm font-semibold text-white hover:bg-error-hover disabled:opacity-60"
+                onClick={confirmDelete}
+                disabled={deleteBusy}
+              >
+                {deleteBusy ? "Working…" : "Delete"}
+              </button>
+              {deleteError && (
+                <button
+                  className="rounded-lg border border-btn-secondary-border px-4 py-2 text-sm font-semibold text-btn-secondary-text hover:bg-surface disabled:opacity-60"
+                  onClick={hideInstead}
+                  disabled={deleteBusy}
+                >
+                  Hide from website instead
+                </button>
+              )}
+              <button
+                className="rounded-lg border border-btn-secondary-border px-4 py-2 text-sm font-semibold text-btn-secondary-text hover:bg-surface disabled:opacity-60"
+                onClick={() => setDeleting(null)}
+                disabled={deleteBusy}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

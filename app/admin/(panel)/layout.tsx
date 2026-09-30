@@ -31,7 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen flex bg-surface">
-      <aside className="w-60 shrink-0 bg-primary text-slate-200 flex flex-col">
+      <aside className="w-60 shrink-0 bg-primary text-slate-200 flex flex-col print:hidden">
         <div className="px-5 py-5 border-b border-white/10">
           <div className="font-bold text-white text-lg">Website Admin</div>
           <div className="text-xs text-slate-400 mt-0.5">

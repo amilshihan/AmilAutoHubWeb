@@ -2,20 +2,26 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndProfile } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
+import { categoryPaths, type CategoryRow } from "@/lib/groups";
 import WebsiteProductsClient, { type WebProduct } from "@/components/admin/WebsiteProductsClient";
 
 export default async function WebsiteProductsPage() {
   const { profile } = await getCurrentUserAndProfile();
-  if (!isAdmin(profile)) redirect("/admin/orders");
+  if (!isAdmin(profile)) redirect("/admin");
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("parts")
-    .select("id, name, sku, sell_price, retail_price, qty_on_hand, is_active, is_service, is_drum, image_url, is_featured, is_online")
-    .order("name")
-    .limit(5000);
+  const [productsRes, categoriesRes] = await Promise.all([
+    supabase
+      .from("parts")
+      .select(
+        "id, name, sku, barcode, description, category_id, unit, sell_price, retail_price, qty_on_hand, is_active, is_service, is_drum, image_url, is_featured, is_online"
+      )
+      .order("name")
+      .limit(5000),
+    supabase.from("categories").select("id, name, parent_id").order("name"),
+  ]);
 
-  if (error) {
+  if (productsRes.error) {
     return (
       <div className="p-6 max-w-2xl">
         <h1 className="text-2xl font-bold text-ink">Website products</h1>
@@ -25,12 +31,21 @@ export default async function WebsiteProductsPage() {
             Run <code className="rounded bg-amber-100 px-1">supabase/migrations/0015_storefront.sql</code> in the Supabase SQL
             editor, then reload this page.
           </p>
-          <p className="mt-2 text-xs text-amber-800">Details: {error.message}</p>
+          <p className="mt-2 text-xs text-amber-800">Details: {productsRes.error.message}</p>
         </div>
       </div>
     );
   }
 
-  const products = ((data ?? []) as WebProduct[]).filter((p) => p.is_active && !p.is_service);
-  return <WebsiteProductsClient products={products} />;
+  const categories = (categoriesRes.data ?? []) as CategoryRow[];
+  const products = ((productsRes.data ?? []) as WebProduct[]).filter((p) => p.is_active && !p.is_service);
+  const paths = categoryPaths(categories);
+
+  return (
+    <WebsiteProductsClient
+      products={products}
+      categoryOptions={categories.map((c) => paths.get(c.id) ?? c.name).sort((a, b) => a.localeCompare(b))}
+      categoryPathById={Object.fromEntries(paths)}
+    />
+  );
 }

@@ -18,12 +18,18 @@ export type PlaceOrderInput = {
   district: string;
   notes: string;
   paymentMethod: PaymentMethodId;
+  couponCode: string;
   lines: { id: string; qty: number }[];
 };
 
 export type PlaceOrderResult =
   | { ok: true; token: string; orderNumber: string }
   | { ok: false; error: string; unavailable?: boolean };
+
+// Postgres exceptions come back as "message" text; show the customer-facing sentence only.
+function couponError(message: string) {
+  return /coupon|Spend at least/i.test(message) ? message : "We couldn't apply that coupon. Please try again.";
+}
 
 const clean = (s: unknown, max: number) => (typeof s === "string" ? s.trim().slice(0, max) : "");
 
@@ -112,6 +118,15 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   const subtotal = Math.round(items.reduce((n, i) => n + i.line_total, 0) * 100) / 100;
   const deliveryFee = zone?.fee ?? 0;
 
+  // Coupons are validated and redeemed on the server against the real subtotal.
+  const couponCode = clean(input.couponCode, 32).toUpperCase();
+  let discount = 0;
+  if (couponCode) {
+    const { data, error } = await admin.rpc("validate_coupon", { p_code: couponCode, p_subtotal: subtotal, p_redeem: true });
+    if (error) return { ok: false, error: couponError(error.message) };
+    discount = Number(data ?? 0);
+  }
+
   const { data: order, error: orderError } = await admin
     .from("online_orders")
     .insert({
@@ -127,14 +142,16 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       payment_method: paymentMethod,
       // payment_status only exists after migration 0016; new orders default to "unpaid" without it.
       ...(paymentMethod === "payhere" ? { payment_status: "pending" } : {}),
+      ...(couponCode ? { coupon_code: couponCode, discount } : {}),
       subtotal,
       delivery_fee: deliveryFee,
-      total: subtotal + deliveryFee,
+      total: Math.round((subtotal - discount + deliveryFee) * 100) / 100,
     })
     .select("id, order_number, public_token")
     .single();
 
   if (orderError || !order) {
+    if (couponCode) await admin.rpc("release_coupon", { p_code: couponCode });
     const missingTable = orderError && /online_orders|schema cache|does not exist/i.test(orderError.message);
     return {
       ok: false,
@@ -150,8 +167,33 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     .insert(items.map((i) => ({ ...i, order_id: order.id })));
   if (itemsError) {
     await admin.from("online_orders").delete().eq("id", order.id);
+    if (couponCode) await admin.rpc("release_coupon", { p_code: couponCode });
     return { ok: false, error: "We couldn't place your order. Please try again or order via WhatsApp." };
   }
 
   return { ok: true, token: order.public_token as string, orderNumber: order.order_number as string };
+}
+
+export type CouponPreview = { ok: true; code: string; discount: number } | { ok: false; error: string };
+
+// Preview only: nothing is redeemed until the order is placed.
+export async function previewCoupon(code: string, subtotal: number): Promise<CouponPreview> {
+  const h = await headers();
+  if (!rateLimit(`coupon:${clientIp(h)}`, 20, 10 * 60_000)) {
+    return { ok: false, error: "Too many attempts. Please wait a few minutes." };
+  }
+  const clean_code = clean(code, 32).toUpperCase();
+  if (!clean_code) return { ok: false, error: "Enter a coupon code." };
+  if (!Number.isFinite(subtotal) || subtotal <= 0) return { ok: false, error: "Your cart is empty." };
+
+  const { data, error } = await createAdminClient().rpc("validate_coupon", {
+    p_code: clean_code,
+    p_subtotal: subtotal,
+    p_redeem: false,
+  });
+  if (error) {
+    // Table/function missing until migration 0017 is applied.
+    return { ok: false, error: /validate_coupon|schema cache/i.test(error.message) ? "Coupons aren't available yet." : couponError(error.message) };
+  }
+  return { ok: true, code: clean_code, discount: Number(data ?? 0) };
 }

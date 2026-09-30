@@ -191,6 +191,17 @@ export default async function OrderPage({
               {zone.label} · {zone.eta}
             </p>
           )}
+          {(order.courier || order.trackingNumber) && (
+            <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-sm text-charcoal">
+              <span className="font-bold">Courier:</span> {order.courier ?? "-"}
+              {order.trackingNumber && (
+                <>
+                  <br />
+                  <span className="font-bold">Tracking no.:</span> {order.trackingNumber}
+                </>
+              )}
+            </p>
+          )}
         </section>
         <section className="rounded-2xl border border-charcoal/10 p-5">
           <h2 className="mb-2 text-sm font-extrabold uppercase tracking-wider text-charcoal/55">Payment</h2>
@@ -223,6 +234,12 @@ export default async function OrderPage({
             <span className="text-charcoal/65">Subtotal</span>
             <span className="tabular-nums">{formatLKR(order.subtotal)}</span>
           </div>
+          {order.discount > 0 && (
+            <div className="flex justify-between text-stock">
+              <span>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</span>
+              <span className="tabular-nums">- {formatLKR(order.discount)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-charcoal/65">Delivery</span>
             <span className="tabular-nums">{order.deliveryFee ? formatLKR(order.deliveryFee) : "Free"}</span>

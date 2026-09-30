@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { getShopInfo } from "@/lib/shop/data";
+import { Suspense } from "react";
+import Link from "next/link";
+import { getShopInfo, getVehicleCatalog } from "@/lib/shop/data";
+import ServiceBookingForm from "@/components/shop/ServiceBookingForm";
 import { SERVICE_GROUPS } from "@/lib/shop/services";
 import { waLink } from "@/lib/shop/whatsapp";
 import { CheckIcon, PhoneIcon, PinIcon, SparkIcon, TruckIcon, WhatsAppIcon, WrenchIcon } from "@/components/shop/Icons";
@@ -15,7 +18,8 @@ const ICONS = [SparkIcon, WrenchIcon, TruckIcon];
 export const revalidate = 300;
 
 export default async function ServicesPage() {
-  const shop = await getShopInfo();
+  const [shop, catalog] = await Promise.all([getShopInfo(), getVehicleCatalog()]);
+  const bookable = SERVICE_GROUPS.flatMap((g) => g.items.filter((i) => i.enabled).map((i) => i.name));
 
   return (
     <div>
@@ -64,14 +68,12 @@ export default async function ServicesPage() {
                       {item.name}
                     </span>
                     {item.enabled ? (
-                      <a
-                        href={waLink(shop.whatsapp, `Hi Amil Auto Hub, I'd like to book: ${item.name}.`)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <Link
+                        href={`/services?service=${encodeURIComponent(item.name)}#book`}
                         className="shrink-0 rounded-md bg-charcoal px-3 py-1.5 text-xs font-bold text-white hover:bg-charcoal-soft"
                       >
                         Book
-                      </a>
+                      </Link>
                     ) : (
                       <span className="shrink-0 text-xs font-semibold">Coming soon</span>
                     )}
@@ -82,6 +84,14 @@ export default async function ServicesPage() {
           );
         })}
       </div>
+
+      <section id="book" className="mx-auto max-w-3xl scroll-mt-40 px-4 pb-10">
+        <h2 className="text-2xl font-extrabold tracking-tight text-charcoal">Book a service</h2>
+        <p className="mb-4 mt-1 text-charcoal/65">Tell us about your vehicle and when suits you. We&apos;ll contact you to confirm.</p>
+        <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-charcoal/5" />}>
+          <ServiceBookingForm services={bookable} catalog={catalog} />
+        </Suspense>
+      </section>
 
       <div className="mx-auto max-w-7xl px-4 pb-4">
         <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-amil-soft p-5 text-sm text-charcoal">
