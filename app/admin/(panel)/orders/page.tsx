@@ -5,7 +5,9 @@ export default async function OnlineOrdersPage() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("online_orders")
-    .select("*, online_order_items(name_snapshot, qty, unit_price, line_total)")
+    .select(
+      "*, online_order_items(name_snapshot, sku_snapshot, qty, unit_price, line_total), online_payments(id, payment_provider, transaction_id, status, amount, currency, payment_date, refund_status, refund_amount)"
+    )
     .order("created_at", { ascending: false })
     .limit(300);
 

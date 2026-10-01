@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrderByToken, getShopInfo } from "@/lib/shop/data";
 import { getStoreSettings } from "@/lib/shop/settings";
 import { buildPayhereCheckout } from "@/lib/shop/payhere";
+import { siteUrl } from "@/lib/site";
 import {
   ORDER_STATUSES,
   ORDER_STATUS_LABEL,
@@ -12,20 +12,13 @@ import {
   PAYMENT_STATUS_LABEL,
   type OrderStatus,
 } from "@/lib/shop/config";
-import { formatDateTime, formatLKR } from "@/lib/shop/format";
+import { formatDate, formatDateTime } from "@/lib/shop/format";
 import { waLink } from "@/lib/shop/whatsapp";
 import { CheckIcon, WhatsAppIcon } from "@/components/shop/Icons";
+import Money from "@/components/shop/Money";
+import CurrencyNotice from "@/components/shop/CurrencyNotice";
 
 export const metadata: Metadata = { title: "Your Order", robots: { index: false, follow: false } };
-
-async function siteUrl() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
-  if (configured) return configured;
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
 
 export default async function OrderPage({
   params,
@@ -97,7 +90,9 @@ export default async function OrderPage({
 
       {payhere && (
         <section className="mt-6 rounded-2xl border-2 border-charcoal bg-amil-soft p-5 text-center">
-          <h2 className="text-lg font-extrabold text-charcoal">Pay {formatLKR(order.total)} online</h2>
+          <h2 className="text-lg font-extrabold text-charcoal">
+            Pay <Money amount={order.total} /> online
+          </h2>
           <p className="mt-1 text-sm text-charcoal/70">You&apos;ll be taken to PayHere&apos;s secure page to pay by card or bank app.</p>
           <form action={payhere.action} method="post" className="mt-4">
             {Object.entries(payhere.fields).map(([name, value]) => (
@@ -117,7 +112,7 @@ export default async function OrderPage({
         <section className="mt-6 rounded-2xl border-2 border-charcoal bg-amil-soft p-5">
           <h2 className="text-lg font-extrabold text-charcoal">Pay by bank transfer</h2>
           <p className="mt-1 text-sm text-charcoal/70">
-            Transfer {formatLKR(order.total)} using <span className="font-bold">{order.orderNumber}</span> as the reference, then send us the slip.
+            Transfer <Money amount={order.total} /> using <span className="font-bold">{order.orderNumber}</span> as the reference, then send us the slip.
           </p>
           <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
             <dt className="text-charcoal/60">Bank</dt>
@@ -202,6 +197,15 @@ export default async function OrderPage({
               )}
             </p>
           )}
+          {(order.estimatedDeliveryDate || order.actualDeliveryDate) && (
+            <p className="mt-2 text-sm text-charcoal/70">
+              {order.actualDeliveryDate
+                ? `Delivered ${formatDate(order.actualDeliveryDate)}`
+                : order.estimatedDeliveryDate
+                  ? `Estimated delivery ${formatDate(order.estimatedDeliveryDate)}`
+                  : null}
+            </p>
+          )}
         </section>
         <section className="rounded-2xl border border-charcoal/10 p-5">
           <h2 className="mb-2 text-sm font-extrabold uppercase tracking-wider text-charcoal/55">Payment</h2>
@@ -210,7 +214,9 @@ export default async function OrderPage({
             {PAYMENT_STATUS_LABEL[order.paymentStatus] ?? order.paymentStatus}
           </p>
           {order.paymentMethod === "cod" && (
-            <p className="mt-1 text-sm text-charcoal/70">Please have {formatLKR(order.total)} ready.</p>
+            <p className="mt-1 text-sm text-charcoal/70">
+              Please have <Money amount={order.total} /> ready.
+            </p>
           )}
         </section>
       </div>
@@ -224,30 +230,45 @@ export default async function OrderPage({
             <li key={idx} className="flex justify-between gap-4 px-5 py-3 text-sm">
               <span>
                 {i.qty} × {i.name}
+                {i.sku && <span className="text-charcoal/50"> ({i.sku})</span>}
               </span>
-              <span className="shrink-0 font-semibold tabular-nums">{formatLKR(i.lineTotal)}</span>
+              <Money amount={i.lineTotal} className="shrink-0 font-semibold tabular-nums" />
             </li>
           ))}
         </ul>
         <div className="space-y-1.5 border-t border-charcoal/10 px-5 py-4 text-sm">
           <div className="flex justify-between">
             <span className="text-charcoal/65">Subtotal</span>
-            <span className="tabular-nums">{formatLKR(order.subtotal)}</span>
+            <Money amount={order.subtotal} className="tabular-nums" />
           </div>
           {order.discount > 0 && (
             <div className="flex justify-between text-stock">
               <span>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</span>
-              <span className="tabular-nums">- {formatLKR(order.discount)}</span>
+              <span className="tabular-nums">
+                - <Money amount={order.discount} />
+              </span>
             </div>
           )}
           <div className="flex justify-between">
             <span className="text-charcoal/65">Delivery</span>
-            <span className="tabular-nums">{order.deliveryFee ? formatLKR(order.deliveryFee) : "Free"}</span>
+            {order.deliveryFee ? <Money amount={order.deliveryFee} className="tabular-nums" /> : <span className="tabular-nums">Free</span>}
           </div>
+          {order.taxAmount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-charcoal/65">Tax</span>
+              <Money amount={order.taxAmount} className="tabular-nums" />
+            </div>
+          )}
           <div className="flex justify-between pt-1 text-base font-extrabold">
             <span>Total</span>
-            <span className="tabular-nums">{formatLKR(order.total)}</span>
+            <Money amount={order.total} className="tabular-nums" />
           </div>
+        </div>
+        {order.loyaltyPointsEarned > 0 && (
+          <div className="border-t border-charcoal/10 px-5 py-3 text-sm text-charcoal/65">You earned {order.loyaltyPointsEarned} loyalty points with this order.</div>
+        )}
+        <div className="border-t border-charcoal/10 px-5 py-3">
+          <CurrencyNotice />
         </div>
       </section>
 

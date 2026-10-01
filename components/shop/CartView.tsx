@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useCart } from "@/components/shop/CartProvider";
+import { useCurrency } from "@/components/shop/CurrencyProvider";
+import CurrencyNotice from "@/components/shop/CurrencyNotice";
 import ProductVisual from "@/components/shop/ProductVisual";
-import { formatLKR } from "@/lib/shop/format";
 import { cartMessage, waLink } from "@/lib/shop/whatsapp";
 import { CartIcon, MinusIcon, PlusIcon, TrashIcon, WhatsAppIcon } from "@/components/shop/Icons";
 
 export default function CartView() {
   const { lines, ready, subtotal, setQty, remove, shop } = useCart();
+  const { format } = useCurrency();
 
   if (!ready) {
     return <div className="mx-auto max-w-7xl px-4 py-16 text-center text-charcoal/50">Loading your cart...</div>;
@@ -51,10 +53,10 @@ export default function CartView() {
                     <Link href={`/product/${l.id}`} className="line-clamp-2 font-semibold text-charcoal hover:underline">
                       {l.name}
                     </Link>
-                    <div className="text-sm text-charcoal/60">{formatLKR(l.price)} each</div>
+                    <div className="text-sm text-charcoal/60">{format(l.price)} each</div>
                   </div>
                   <div className="shrink-0 text-right font-extrabold tabular-nums text-charcoal">
-                    {formatLKR(l.price * l.qty)}
+                    {format(l.price * l.qty)}
                   </div>
                 </div>
                 <div className="mt-auto flex items-center justify-between">
@@ -94,8 +96,9 @@ export default function CartView() {
           <h2 className="text-lg font-extrabold text-charcoal">Order summary</h2>
           <div className="flex justify-between text-sm">
             <span className="text-charcoal/65">Subtotal</span>
-            <span className="font-bold tabular-nums">{formatLKR(subtotal)}</span>
+            <span className="font-bold tabular-nums">{format(subtotal)}</span>
           </div>
+          <CurrencyNotice />
           <p className="text-xs text-charcoal/55">Delivery charges are added at checkout. Pickup from Kottawa is free.</p>
           <Link
             href="/checkout"

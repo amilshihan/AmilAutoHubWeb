@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { PublicProduct } from "@/lib/shop/types";
-import { formatLKR } from "@/lib/shop/format";
+import Money from "@/components/shop/Money";
 import ProductVisual from "@/components/shop/ProductVisual";
 import AddToCartButton from "@/components/shop/AddToCartButton";
 import { ShieldIcon } from "@/components/shop/Icons";
@@ -22,13 +22,9 @@ export function StockBadge({ product }: { product: PublicProduct }) {
 export function PriceBlock({ product, large = false }: { product: PublicProduct; large?: boolean }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-2">
-      <span className={`${large ? "text-3xl" : "text-lg"} font-extrabold text-charcoal tabular-nums`}>
-        {formatLKR(product.price)}
-      </span>
+      <Money amount={product.price} className={`${large ? "text-3xl" : "text-lg"} font-extrabold text-charcoal tabular-nums`} />
       {product.compareAt && (
-        <span className={`${large ? "text-base" : "text-sm"} text-charcoal/45 line-through tabular-nums`}>
-          {formatLKR(product.compareAt)}
-        </span>
+        <Money amount={product.compareAt} className={`${large ? "text-base" : "text-sm"} text-charcoal/45 line-through tabular-nums`} />
       )}
     </div>
   );

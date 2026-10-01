@@ -372,6 +372,28 @@ export async function getProduct(id: string): Promise<PublicProduct | null> {
   return toPublicProduct(data as Row, categoryPath, compat);
 }
 
+// Batch form of getProduct, for "buy again" / recommendation lists -- always fresh (stock
+// and price must be current), order of the input ids is preserved, missing/unsellable ids
+// are dropped silently.
+export async function getProducts(ids: string[]): Promise<PublicProduct[]> {
+  const unique = [...new Set(ids)].filter((id) => UUID.test(id));
+  if (unique.length === 0) return [];
+  const admin = createAdminClient();
+  const [{ data }, categoryPath, compat] = await Promise.all([
+    admin.from("parts").select("*").in("id", unique),
+    loadCategoryPaths(),
+    loadCompat(),
+  ]);
+  const byId = new Map((data ?? []).map((row) => [String((row as Row).id), row as Row]));
+  const out: PublicProduct[] = [];
+  for (const id of unique) {
+    const row = byId.get(id);
+    const product = row ? toPublicProduct(row, categoryPath, compat) : null;
+    if (product) out.push(product);
+  }
+  return out;
+}
+
 // ─── Shop info, vehicles, services ───────────────────────────
 
 export const getShopInfo = ttlCache<ShopInfo>(5 * 60_000, async () => {
@@ -446,16 +468,20 @@ export type PublicOrder = {
   courier: string | null;
   trackingNumber: string | null;
   deliveryFee: number;
+  taxAmount: number;
   total: number;
+  loyaltyPointsEarned: number;
+  estimatedDeliveryDate: string | null;
+  actualDeliveryDate: string | null;
   createdAt: string;
-  items: { name: string; qty: number; unitPrice: number; lineTotal: number }[];
+  items: { name: string; sku: string | null; qty: number; unitPrice: number; lineTotal: number }[];
 };
 
 async function hydrateOrder(row: Row): Promise<PublicOrder> {
   const admin = createAdminClient();
   const { data: items } = await admin
     .from("online_order_items")
-    .select("name_snapshot, qty, unit_price, line_total")
+    .select("name_snapshot, sku_snapshot, qty, unit_price, line_total")
     .eq("order_id", row.id as string);
   return {
     id: row.id as string,
@@ -477,10 +503,15 @@ async function hydrateOrder(row: Row): Promise<PublicOrder> {
     courier: str(row.courier),
     trackingNumber: str(row.tracking_number),
     deliveryFee: num(row.delivery_fee),
+    taxAmount: num(row.tax_amount),
     total: num(row.total),
+    loyaltyPointsEarned: Number(row.loyalty_points_earned ?? 0),
+    estimatedDeliveryDate: str(row.estimated_delivery_date),
+    actualDeliveryDate: str(row.actual_delivery_date),
     createdAt: row.created_at as string,
     items: (items ?? []).map((i) => ({
       name: i.name_snapshot as string,
+      sku: (i.sku_snapshot as string | null) ?? null,
       qty: num(i.qty),
       unitPrice: num(i.unit_price),
       lineTotal: num(i.line_total),

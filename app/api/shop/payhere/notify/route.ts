@@ -40,5 +40,16 @@ export async function POST(request: Request) {
     .update({ payment_status: status, payment_reference: fields.payment_id || null, updated_at: new Date().toISOString() })
     .eq("id", order.id);
 
+  await admin
+    .from("online_payments")
+    .update({
+      status,
+      transaction_id: fields.payment_id || null,
+      payment_date: status === "paid" ? new Date().toISOString() : undefined,
+      refund_status: status === "refunded" ? "full" : undefined,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("order_id", order.id);
+
   return new NextResponse("OK");
 }

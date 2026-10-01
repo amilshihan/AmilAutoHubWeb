@@ -15,7 +15,13 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { href: "/admin/inventory", label: "Inventory", admin: true },
     ],
   },
-  { title: "Customers", items: [{ href: "/admin/customers", label: "Customers" }] },
+  {
+    title: "Customers",
+    items: [
+      { href: "/admin/customers", label: "Customers" },
+      { href: "/admin/support", label: "Support tickets" },
+    ],
+  },
   {
     title: "Marketing",
     items: [

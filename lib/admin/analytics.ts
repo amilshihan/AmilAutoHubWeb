@@ -13,6 +13,7 @@ export type OrderRow = {
   customer_name: string;
   customer_phone: string;
   customer_email?: string | null;
+  customer_account_id?: string | null;
   fulfilment: string;
 };
 
@@ -184,4 +185,45 @@ export function buildCustomers(orders: OrderRow[], nowMs: number = Date.now()): 
     });
   }
   return out.sort((a, b) => b.spent - a.spent || Date.parse(b.lastOrder) - Date.parse(a.lastOrder));
+}
+
+export type AccountOrderStats = {
+  totalOrders: number;
+  totalSpent: number;
+  lifetimeValue: number;
+  lastPurchaseDate: string | null;
+  history: { id: string; orderNumber: string; total: number; status: string; createdAt: string }[];
+};
+
+// Matches a registered account's orders by customer_account_id where the order carries it
+// (set at checkout when the buyer was signed in), falling back to phone/email matching for
+// orders placed before that link existed, or placed as a guest with the account's contact
+// details. Lifetime value is defined here as all-time non-cancelled spend (same as `spent`
+// in buildCustomers) -- kept as a distinct field name since a future loyalty/refund-aware
+// definition may want to diverge from the simple order total.
+export function computeAccountOrderStats(
+  orders: OrderRow[],
+  account: { id: string; mobile: string | null; email: string; additionalMobiles: string[]; additionalEmails: string[] }
+): AccountOrderStats {
+  const mobileKeys = new Set([account.mobile, ...account.additionalMobiles].filter(Boolean).map((m) => phoneKey(m as string)));
+  const emailKeys = new Set([account.email, ...account.additionalEmails].filter(Boolean).map((e) => (e as string).toLowerCase()));
+
+  const matched = orders.filter(
+    (o) =>
+      o.customer_account_id === account.id ||
+      mobileKeys.has(phoneKey(o.customer_phone)) ||
+      (o.customer_email && emailKeys.has(o.customer_email.toLowerCase()))
+  );
+
+  const sorted = [...matched].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  const live = sorted.filter(counted);
+  const spent = live.reduce((s, o) => s + n(o.total), 0);
+
+  return {
+    totalOrders: live.length,
+    totalSpent: spent,
+    lifetimeValue: spent,
+    lastPurchaseDate: live[0]?.created_at ?? null,
+    history: sorted.map((o) => ({ id: o.id, orderNumber: o.order_number, total: n(o.total), status: o.status, createdAt: o.created_at })),
+  };
 }

@@ -5,6 +5,7 @@ import { getProduct, getRelated, getShopInfo } from "@/lib/shop/data";
 import { COLLECTION_BY_SLUG } from "@/lib/shop/collections";
 import { formatLKR } from "@/lib/shop/format";
 import ProductVisual from "@/components/shop/ProductVisual";
+import Money from "@/components/shop/Money";
 import ProductCard, { PriceBlock, StockBadge } from "@/components/shop/ProductCard";
 import AddToCartButton from "@/components/shop/AddToCartButton";
 import { ChevronIcon, PinIcon, ShieldIcon, TruckIcon } from "@/components/shop/Icons";
@@ -98,7 +99,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <PriceBlock product={product} large />
           {product.compareAt && (
             <p className="-mt-3 text-sm font-semibold text-deal">
-              You save {formatLKR(product.compareAt - product.price)}
+              You save <Money amount={product.compareAt - product.price} />
             </p>
           )}
 

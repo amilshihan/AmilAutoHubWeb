@@ -2,17 +2,19 @@
 
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { addWatermark } from "@/lib/admin/watermark";
 import { helperText } from "@/lib/ui";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
-type Status = "idle" | "removing" | "uploading" | "error";
+type Status = "idle" | "removing" | "watermarking" | "uploading" | "error";
 
 export default function ProductImageUploader({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const [status, setStatus] = useState<Status>("idle");
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [removeBg, setRemoveBg] = useState(true);
+  const [watermark, setWatermark] = useState(true);
   const [showUrlField, setShowUrlField] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -53,6 +55,18 @@ export default function ProductImageUploader({ value, onChange }: { value: strin
       }
     }
 
+    if (watermark) {
+      setStatus("watermarking");
+      setProgress("Adding Amil Auto Hub watermark…");
+      try {
+        blob = await addWatermark(blob);
+        contentType = "image/png";
+        ext = "png";
+      } catch {
+        setError("Could not add the watermark. Uploaded the photo without it.");
+      }
+    }
+
     setStatus("uploading");
     setProgress("Uploading…");
     const supabase = createClient();
@@ -75,7 +89,7 @@ export default function ProductImageUploader({ value, onChange }: { value: strin
     onChange(data.publicUrl);
   }
 
-  const busy = status === "removing" || status === "uploading";
+  const busy = status === "removing" || status === "watermarking" || status === "uploading";
 
   return (
     <div>
@@ -128,6 +142,10 @@ export default function ProductImageUploader({ value, onChange }: { value: strin
             <input type="checkbox" checked={removeBg} onChange={(e) => setRemoveBg(e.target.checked)} disabled={busy} className="h-4 w-4 accent-primary" />
             Remove background automatically
           </label>
+          <label className="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={watermark} onChange={(e) => setWatermark(e.target.checked)} disabled={busy} className="h-4 w-4 accent-primary" />
+            Add Amil Auto Hub watermark
+          </label>
 
           {busy && <p className="text-sm font-medium text-accent">{progress}</p>}
           {error && (
@@ -149,7 +167,10 @@ export default function ProductImageUploader({ value, onChange }: { value: strin
           )}
         </div>
       </div>
-      <p className={`${helperText} mt-2`}>Photos on a plain background work best. The background is removed before upload and saved as a transparent PNG.</p>
+      <p className={`${helperText} mt-2`}>
+        Photos on a plain background work best. The background is removed and the Amil Auto Hub logo is added diagonally before upload, saved as a
+        transparent PNG.
+      </p>
     </div>
   );
 }

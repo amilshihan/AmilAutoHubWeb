@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useCart } from "@/components/shop/CartProvider";
 import { placeOrder, previewCoupon, type PlaceOrderResult } from "@/app/(shop)/checkout/actions";
-import { PAYMENT_LABEL, SRI_LANKA_DISTRICTS, type DeliveryZoneId } from "@/lib/shop/config";
+import { PAYMENT_LABEL, SRI_LANKA_DISTRICTS, SRI_LANKA_PROVINCES, type DeliveryZoneId } from "@/lib/shop/config";
 import type { BankTransferConfig, DeliveryZoneConfig, PaymentMethodId } from "@/lib/shop/settings-types";
-import { formatLKR } from "@/lib/shop/format";
+import { useCurrency } from "@/components/shop/CurrencyProvider";
+import CurrencyNotice from "@/components/shop/CurrencyNotice";
 import { cartMessage, waLink } from "@/lib/shop/whatsapp";
 import { PinIcon, TruckIcon, WhatsAppIcon } from "@/components/shop/Icons";
 
@@ -21,6 +22,19 @@ export type CheckoutOptions = {
   bank: BankTransferConfig;
 };
 
+export type CheckoutPrefill = {
+  name: string;
+  phone: string;
+  email: string;
+  companyName: string;
+  address: string;
+  addressLine2: string;
+  city: string;
+  district: string;
+  province: string;
+  postalCode: string;
+};
+
 const METHOD_HINT: Record<PaymentMethodId, string> = {
   cod: "Pay in cash when your order arrives.",
   pay_at_pickup: "Pay when you collect your order at our store.",
@@ -28,9 +42,20 @@ const METHOD_HINT: Record<PaymentMethodId, string> = {
   payhere: "Pay securely online with your card or bank app on the next step.",
 };
 
-export default function CheckoutForm({ options }: { options: CheckoutOptions }) {
+export default function CheckoutForm({
+  options,
+  prefill,
+  vehicles = [],
+  pointsBalance = 0,
+}: {
+  options: CheckoutOptions;
+  prefill?: CheckoutPrefill;
+  vehicles?: { id: string; label: string }[];
+  pointsBalance?: number;
+}) {
   const router = useRouter();
   const { lines, ready, subtotal, clear, shop } = useCart();
+  const { format } = useCurrency();
   const zones = options.zones;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<{ message: string; unavailable?: boolean } | null>(null);
@@ -42,13 +67,19 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
   const [couponInput, setCouponInput] = useState("");
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponBusy, setCouponBusy] = useState(false);
+  const [usePoints, setUsePoints] = useState(false);
   const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    address: "",
-    city: "",
-    district: "Colombo",
+    name: prefill?.name ?? "",
+    phone: prefill?.phone ?? "",
+    email: prefill?.email ?? "",
+    companyName: prefill?.companyName ?? "",
+    address: prefill?.address ?? "",
+    addressLine2: prefill?.addressLine2 ?? "",
+    city: prefill?.city ?? "",
+    district: prefill?.district || "Colombo",
+    province: prefill?.province ?? "",
+    postalCode: prefill?.postalCode ?? "",
+    vehicleId: "",
     notes: "",
   });
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -61,7 +92,9 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
   const paymentMethod = methods.includes(methodChoice as PaymentMethodId) ? (methodChoice as PaymentMethodId) : methods[0];
   const canOrder = paymentMethod !== undefined && (fulfilment === "pickup" || selectedZone !== undefined);
   const discount = Math.min(coupon?.discount ?? 0, subtotal);
-  const total = subtotal - discount + deliveryFee;
+  const payableBeforePoints = Math.max(0, subtotal - discount + deliveryFee);
+  const pointsToRedeem = usePoints ? Math.min(pointsBalance, payableBeforePoints) : 0;
+  const total = payableBeforePoints - pointsToRedeem;
 
   async function applyCoupon() {
     setCouponMsg(null);
@@ -105,6 +138,7 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
           zone: fulfilment === "delivery" ? zone : "",
           paymentMethod,
           couponCode: coupon?.code ?? "",
+          redeemPoints: pointsToRedeem,
           lines: lines.map((l) => ({ id: l.id, qty: l.qty })),
         });
       } catch {
@@ -199,7 +233,7 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
                         <span className="text-charcoal/55">{z.eta}</span>
                       </span>
                     </span>
-                    <span className="font-bold tabular-nums">{formatLKR(z.fee)}</span>
+                    <span className="font-bold tabular-nums">{format(z.fee)}</span>
                   </label>
                 ))}
               </fieldset>
@@ -240,8 +274,14 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
               {fulfilment === "delivery" && (
                 <>
                   <div className="sm:col-span-2">
+                    <label htmlFor="companyName" className={label}>
+                      Company name <span className="font-normal text-charcoal/50">(optional)</span>
+                    </label>
+                    <input id="companyName" autoComplete="organization" className={field} value={form.companyName} onChange={set("companyName")} />
+                  </div>
+                  <div className="sm:col-span-2">
                     <label htmlFor="address" className={label}>
-                      Delivery address
+                      Address line 1
                     </label>
                     <input
                       id="address"
@@ -252,6 +292,12 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
                       value={form.address}
                       onChange={set("address")}
                     />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="addressLine2" className={label}>
+                      Address line 2 <span className="font-normal text-charcoal/50">(optional)</span>
+                    </label>
+                    <input id="addressLine2" autoComplete="address-line2" className={field} value={form.addressLine2} onChange={set("addressLine2")} />
                   </div>
                   <div>
                     <label htmlFor="city" className={label}>
@@ -269,7 +315,41 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <label htmlFor="province" className={label}>
+                      Province <span className="font-normal text-charcoal/50">(optional)</span>
+                    </label>
+                    <select id="province" className={field} value={form.province} onChange={set("province")}>
+                      <option value="">Not set</option>
+                      {SRI_LANKA_PROVINCES.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="postalCode" className={label}>
+                      Postal code <span className="font-normal text-charcoal/50">(optional)</span>
+                    </label>
+                    <input id="postalCode" autoComplete="postal-code" className={field} value={form.postalCode} onChange={set("postalCode")} />
+                  </div>
                 </>
+              )}
+              {vehicles.length > 0 && (
+                <div className="sm:col-span-2">
+                  <label htmlFor="vehicleId" className={label}>
+                    Which vehicle is this for? <span className="font-normal text-charcoal/50">(optional)</span>
+                  </label>
+                  <select id="vehicleId" className={field} value={form.vehicleId} onChange={set("vehicleId")}>
+                    <option value="">Not specified</option>
+                    {vehicles.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
               <div className="sm:col-span-2">
                 <label htmlFor="notes" className={label}>
@@ -346,7 +426,7 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
                 <span className="text-charcoal/80">
                   {l.qty} × {l.name}
                 </span>
-                <span className="shrink-0 font-semibold tabular-nums">{formatLKR(l.price * l.qty)}</span>
+                <span className="shrink-0 font-semibold tabular-nums">{format(l.price * l.qty)}</span>
               </li>
             ))}
           </ul>
@@ -400,26 +480,42 @@ export default function CheckoutForm({ options }: { options: CheckoutOptions }) 
               </div>
             )}
           </div>
+          {pointsBalance > 0 && (
+            <label className="flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2.5 text-sm">
+              <span className="flex items-center gap-2">
+                <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} className="accent-charcoal" />
+                <span className="font-semibold text-charcoal">Use my {pointsBalance} loyalty points</span>
+              </span>
+              {usePoints && <span className="font-bold tabular-nums text-stock">- {format(pointsToRedeem)}</span>}
+            </label>
+          )}
           <div className="space-y-2 border-t border-charcoal/10 pt-4 text-sm">
             <div className="flex justify-between">
               <span className="text-charcoal/65">Subtotal</span>
-              <span className="font-semibold tabular-nums">{formatLKR(subtotal)}</span>
+              <span className="font-semibold tabular-nums">{format(subtotal)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-stock">
                 <span>Discount</span>
-                <span className="font-semibold tabular-nums">- {formatLKR(discount)}</span>
+                <span className="font-semibold tabular-nums">- {format(discount)}</span>
               </div>
             )}
             <div className="flex justify-between">
               <span className="text-charcoal/65">{fulfilment === "delivery" ? "Delivery" : "Pickup"}</span>
-              <span className="font-semibold tabular-nums">{deliveryFee ? formatLKR(deliveryFee) : "Free"}</span>
+              <span className="font-semibold tabular-nums">{deliveryFee ? format(deliveryFee) : "Free"}</span>
             </div>
+            {pointsToRedeem > 0 && (
+              <div className="flex justify-between text-stock">
+                <span>Loyalty points</span>
+                <span className="font-semibold tabular-nums">- {format(pointsToRedeem)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-charcoal/10 pt-3 text-base">
               <span className="font-extrabold">Total</span>
-              <span className="font-extrabold tabular-nums">{formatLKR(total)}</span>
+              <span className="font-extrabold tabular-nums">{format(total)}</span>
             </div>
           </div>
+          <CurrencyNotice className="-mt-1" />
           <button
             type="submit"
             disabled={pending || !canOrder}

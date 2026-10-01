@@ -1,74 +1,138 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { findOrder } from "@/lib/shop/data";
-import { clientIp, rateLimit } from "@/lib/shop/rateLimit";
-import { PhoneIcon, SearchIcon } from "@/components/shop/Icons";
+import { getCurrentCustomer } from "@/lib/customer/auth";
+import { getCustomerAddresses } from "@/lib/customer/addresses";
+import { getCustomerVehicles } from "@/lib/customer/vehicles";
+import { logoutCustomer } from "@/app/(shop)/logout/actions";
+import { formatDate, formatDateTime } from "@/lib/shop/format";
+import ProfilePhotoUploader from "@/components/shop/ProfilePhotoUploader";
+import ProfileDetailsForm from "@/components/shop/ProfileDetailsForm";
+import ProfileCompletion, { type CompletionItem } from "@/components/shop/ProfileCompletion";
 
-export const metadata: Metadata = { title: "My Account · Track Your Order", robots: { index: false } };
+export const metadata: Metadata = { title: "My Account", robots: { index: false } };
 
-const field =
-  "w-full rounded-lg border border-charcoal/20 bg-white px-3.5 py-3 text-sm text-charcoal placeholder:text-charcoal/40 focus:border-charcoal focus:outline-none focus:ring-2 focus:ring-amil/50";
+const STATUS_LABEL: Record<string, string> = { active: "Active", suspended: "Suspended", deleted: "Deleted" };
+const GENDER_LABEL: Record<string, string> = { male: "Male", female: "Female", other: "Other", prefer_not_to_say: "Prefer not to say" };
+const COMM_LABEL: Record<string, string> = { email: "Email", whatsapp: "WhatsApp", phone: "Call" };
+const CUSTOMER_TYPE_LABEL: Record<string, string> = {
+  individual: "Individual",
+  garage: "Garage",
+  workshop: "Workshop",
+  business: "Business",
+  dealer: "Dealer",
+  fleet: "Fleet",
+};
 
-export default async function AccountPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ order?: string; phone?: string }>;
-}) {
-  const { order, phone } = await searchParams;
-  let error: string | null = null;
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-3 py-1.5">
+      <dt className="text-charcoal/60">{label}</dt>
+      <dd className="text-right font-semibold text-charcoal">{value}</dd>
+    </div>
+  );
+}
 
-  if (order && phone) {
-    const h = await headers();
-    if (!rateLimit(`track:${clientIp(h)}`, 10, 10 * 60_000)) {
-      error = "Too many attempts. Please wait a few minutes and try again.";
-    } else {
-      const found = await findOrder(order, phone);
-      if (found) redirect(`/order/${found.token}`);
-      error = "We couldn't find an order matching those details. Check the order number and the phone number you used at checkout.";
-    }
+export default async function AccountPage() {
+  const customer = await getCurrentCustomer();
+
+  if (!customer) {
+    return (
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-charcoal">My Account</h1>
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-amil-soft p-5">
+          <p className="text-sm font-semibold text-charcoal">Have an account? Sign in for faster checkout next time.</p>
+          <div className="flex gap-2">
+            <Link href="/login" className="rounded-lg bg-charcoal px-4 py-2 text-sm font-bold text-white hover:bg-charcoal-soft">
+              Sign in
+            </Link>
+            <Link href="/register" className="rounded-lg border border-charcoal/20 bg-white px-4 py-2 text-sm font-bold text-charcoal hover:bg-surface">
+              Create account
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
+  const [addresses, vehicles] = await Promise.all([getCustomerAddresses(customer.id), getCustomerVehicles(customer.id)]);
+
+  const completionItems: CompletionItem[] = [
+    { label: "Add a profile photo", done: !!customer.avatarUrl, href: "#complete-profile" },
+    { label: "Add your date of birth", done: !!customer.dateOfBirth, href: "#complete-profile" },
+    { label: "Set your gender", done: !!customer.gender, href: "#complete-profile" },
+    { label: "Set your preferred language", done: !!customer.preferredLanguage, href: "#complete-profile" },
+    { label: "Set how you'd like to be contacted", done: !!customer.communicationPreference, href: "#complete-profile" },
+    { label: "Save an address", done: addresses.length > 0, href: "/account/addresses" },
+    { label: "Register a vehicle", done: vehicles.length > 0, href: "/account/vehicles" },
+  ];
+
   return (
-    <div className="mx-auto max-w-xl px-4 py-14">
-      <h1 className="text-3xl font-extrabold tracking-tight text-charcoal">Track your order</h1>
-      <p className="mt-2 text-charcoal/65">
-        Enter your order number and the phone number you ordered with. No account or password needed.
-      </p>
+    <div className="space-y-6">
+      <ProfileCompletion items={completionItems} />
 
-      {error && (
-        <div role="alert" className="mt-5 rounded-xl border border-deal/30 bg-deal-soft p-4 text-sm font-semibold text-charcoal">
-          {error}
-        </div>
-      )}
+      <section className="rounded-2xl border border-charcoal/10 bg-white p-5 sm:p-6">
+        <h2 className="text-lg font-extrabold text-charcoal">Welcome back, {customer.firstName}</h2>
 
-      <form method="get" className="mt-6 space-y-4 rounded-2xl border border-charcoal/10 bg-surface p-5">
-        <div>
-          <label htmlFor="order" className="mb-1 block text-sm font-bold text-charcoal">
-            Order number
-          </label>
-          <input id="order" name="order" required placeholder="AH10245" defaultValue={order} className={field} />
+        <div className="mt-4">
+          <ProfilePhotoUploader initialUrl={customer.avatarUrl} initials={`${customer.firstName.charAt(0)}${customer.lastName.charAt(0)}`.toUpperCase()} />
         </div>
-        <div>
-          <label htmlFor="phone" className="mb-1 block text-sm font-bold text-charcoal">
-            Phone number
-          </label>
-          <input id="phone" name="phone" type="tel" required placeholder="077 123 4567" defaultValue={phone} className={field} />
-        </div>
-        <button
-          type="submit"
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-amil px-5 py-3 text-sm font-extrabold uppercase tracking-wide text-charcoal hover:bg-amil-hover"
-        >
-          <SearchIcon width={17} height={17} /> Track order
-        </button>
-      </form>
 
-      <p className="mt-6 flex items-start gap-2 text-sm text-charcoal/60">
-        <PhoneIcon width={16} height={16} className="mt-0.5 shrink-0" />
-        <span>
-          Need help? <Link href="/contact" className="font-bold text-charcoal underline decoration-amil decoration-2 underline-offset-2">Contact us</Link> and quote your order number.
-        </span>
+        <dl className="mt-5 divide-y divide-charcoal/10 text-sm">
+          <Row label="Customer ID" value={<span className="font-mono text-xs">{customer.id}</span>} />
+          <Row label="First name" value={customer.firstName} />
+          <Row label="Last name" value={customer.lastName} />
+          <Row label="Mobile numbers" value={[customer.mobile, ...customer.additionalMobiles].filter(Boolean).join(", ") || "Not provided"} />
+          <Row label="Email addresses" value={[customer.email, ...customer.additionalEmails].filter(Boolean).join(", ")} />
+          <Row label="Customer type" value={CUSTOMER_TYPE_LABEL[customer.customerType] ?? customer.customerType} />
+          <Row label="Sign-in method" value={customer.authProvider === "google" ? "Google" : "Password"} />
+          <Row label="Account created" value={formatDate(customer.createdAt)} />
+          <Row label="Account status" value={STATUS_LABEL[customer.status] ?? customer.status} />
+          <Row
+            label="Email verification"
+            value={<span className={customer.emailVerified ? "text-stock" : "text-charcoal/60"}>{customer.emailVerified ? "Verified" : "Not verified"}</span>}
+          />
+          <Row
+            label="Mobile verification"
+            value={<span className={customer.mobileVerified ? "text-stock" : "text-charcoal/60"}>{customer.mobileVerified ? "Verified" : "Not verified"}</span>}
+          />
+          <Row label="Last login" value={customer.lastLoginAt ? formatDateTime(customer.lastLoginAt) : "-"} />
+        </dl>
+
+        <form action={logoutCustomer} className="mt-5">
+          <button type="submit" className="rounded-lg border border-charcoal/20 px-5 py-2.5 text-sm font-bold text-charcoal hover:bg-surface">
+            Sign out
+          </button>
+        </form>
+      </section>
+
+      <section id="complete-profile" className="scroll-mt-20 rounded-2xl border border-charcoal/10 bg-white p-5 sm:p-6">
+        <h2 className="text-lg font-extrabold text-charcoal">Personal information</h2>
+        <p className="mt-1 text-sm text-charcoal/60">Optional — helps us recommend the right products and contact you the way you prefer.</p>
+        <div className="mt-4">
+          <ProfileDetailsForm
+            dateOfBirth={customer.dateOfBirth}
+            gender={customer.gender}
+            preferredLanguage={customer.preferredLanguage}
+            communicationPreference={customer.communicationPreference}
+            customerType={customer.customerType}
+            additionalMobiles={customer.additionalMobiles}
+            additionalEmails={customer.additionalEmails}
+          />
+        </div>
+        {(customer.gender || customer.communicationPreference) && (
+          <p className="mt-3 text-xs text-charcoal/50">
+            Currently: {customer.gender ? GENDER_LABEL[customer.gender] ?? customer.gender : "gender not set"}
+            {customer.communicationPreference ? `, contact by ${COMM_LABEL[customer.communicationPreference] ?? customer.communicationPreference}` : ""}.
+          </p>
+        )}
+      </section>
+
+      <p className="text-sm text-charcoal/60">
+        Need to change your password or delete your account? Head to{" "}
+        <Link href="/account/security" className="font-bold text-charcoal underline decoration-amil decoration-2 underline-offset-2">
+          Security
+        </Link>
+        .
       </p>
     </div>
   );

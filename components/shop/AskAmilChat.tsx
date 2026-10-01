@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { PublicProduct } from "@/lib/shop/types";
-import { formatLKR } from "@/lib/shop/format";
 import { waLink } from "@/lib/shop/whatsapp";
 import { useCart } from "@/components/shop/CartProvider";
+import { useCurrency } from "@/components/shop/CurrencyProvider";
 import ProductVisual from "@/components/shop/ProductVisual";
 import { CartIcon, SendIcon, SparkIcon, WhatsAppIcon } from "@/components/shop/Icons";
 
@@ -20,6 +20,7 @@ const STARTERS = [
 
 export default function AskAmilChat({ initialQuestion }: { initialQuestion?: string }) {
   const { add, shop } = useCart();
+  const { format } = useCurrency();
   const [messages, setMessages] = useState<Message[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>(STARTERS);
   const [input, setInput] = useState("");
@@ -116,7 +117,7 @@ export default function AskAmilChat({ initialQuestion }: { initialQuestion?: str
                             {p.name}
                           </Link>
                           <div className="text-sm">
-                            <span className="font-extrabold tabular-nums">{formatLKR(p.price)}</span>
+                            <span className="font-extrabold tabular-nums">{format(p.price)}</span>
                             <span className={`ml-2 text-xs font-semibold ${p.inStock ? "text-stock" : "text-charcoal/50"}`}>
                               {p.inStock ? "In Stock" : "Out of stock"}
                             </span>

@@ -5,20 +5,20 @@ import { PhoneIcon, PinIcon, SearchIcon, TruckIcon, UserIcon, WhatsAppIcon } fro
 import { waLink } from "@/lib/shop/whatsapp";
 import CartButton from "@/components/shop/CartButton";
 import ShopNav from "@/components/shop/ShopNav";
+import CurrencySelect from "@/components/shop/CurrencySelect";
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5" aria-label="Amil Auto Hub home">
-      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amil text-charcoal shadow-sm">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M4 20 12 4l8 16" />
-          <path d="M7.6 14h8.8" />
-        </svg>
-      </span>
-      <span className="leading-none">
-        <span className={`block text-xl font-extrabold tracking-tight ${light ? "text-white" : "text-charcoal"}`}>AMIL</span>
-        <span className={`block text-[11px] font-bold tracking-[0.32em] ${light ? "text-amil" : "text-charcoal/70"}`}>AUTO HUB</span>
-      </span>
+    <Link href="/" className="flex items-center" aria-label="Amil Auto Hub home">
+      {light ? (
+        <span className="inline-flex items-center rounded-lg bg-white px-3 py-2 shadow-sm">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/amil-logo.png" alt="Amil Auto Hub" className="h-8 w-auto sm:h-9" />
+        </span>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src="/brand/amil-logo.png" alt="Amil Auto Hub" className="h-10 w-auto sm:h-11" />
+      )}
     </Link>
   );
 }
@@ -80,6 +80,7 @@ export default function ShopHeader({ shop }: { shop: ShopInfo }) {
             </form>
 
             <div className="ml-auto flex items-center gap-1.5 md:ml-0">
+              <CurrencySelect />
               <Link
                 href="/account"
                 className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-semibold text-charcoal hover:bg-charcoal/5"

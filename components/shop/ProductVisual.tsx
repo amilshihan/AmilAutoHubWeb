@@ -18,8 +18,18 @@ export default function ProductVisual({
 }) {
   if (imageUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={imageUrl} alt={name} loading="lazy" className={`w-full h-full object-contain bg-white ${className}`} />
+      <div className={`relative h-full w-full overflow-hidden ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt={name} loading="lazy" className="h-full w-full object-contain bg-white" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/amil-logo.png"
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          className="pointer-events-none absolute left-1/2 top-1/2 w-[78%] max-w-none -translate-x-1/2 -translate-y-1/2 -rotate-[28deg] select-none opacity-[0.22]"
+        />
+      </div>
     );
   }
   return (

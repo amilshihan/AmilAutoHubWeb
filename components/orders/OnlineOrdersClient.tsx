@@ -9,12 +9,26 @@ import { formatDateTime, formatLKR } from "@/lib/shop/format";
 import { ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_LABEL, PAYMENT_STATUS_LABEL, type OrderStatus } from "@/lib/shop/config";
 import { toWhatsAppNumber, waLink } from "@/lib/shop/whatsapp";
 
+export type AddressSnapshot = {
+  recipientName: string;
+  companyName: string | null;
+  mobile: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  district: string;
+  province: string | null;
+  postalCode: string | null;
+  deliveryInstructions: string | null;
+};
+
 export type OnlineOrder = {
   id: string;
   order_number: string;
   customer_name: string;
   customer_phone: string;
   customer_email: string | null;
+  customer_account_id?: string | null;
   fulfilment: "delivery" | "pickup";
   delivery_zone: string | null;
   address_line: string | null;
@@ -30,11 +44,67 @@ export type OnlineOrder = {
   tracking_number?: string | null;
   subtotal: number;
   delivery_fee: number;
+  tax_amount?: number;
   total: number;
   status: OrderStatus;
+  fulfillment_status?: string;
+  shipping_status?: string;
+  billing_address?: AddressSnapshot | null;
+  shipping_address?: AddressSnapshot | null;
+  loyalty_points_used?: number;
+  loyalty_points_earned?: number;
+  estimated_delivery_date?: string | null;
+  actual_delivery_date?: string | null;
+  cancellation_reason?: string | null;
+  refund_amount?: number | null;
+  refund_reason?: string | null;
+  refunded_at?: string | null;
   created_at: string;
-  online_order_items: { name_snapshot: string; qty: number; unit_price: number; line_total: number }[];
+  online_order_items: { name_snapshot: string; sku_snapshot?: string | null; qty: number; unit_price: number; line_total: number }[];
+  online_payments?: PaymentRecord[];
 };
+
+export type PaymentRecord = {
+  id: string;
+  payment_provider: string;
+  transaction_id: string | null;
+  status: string;
+  amount: number;
+  currency: string;
+  payment_date: string | null;
+  refund_status: string;
+  refund_amount: number | null;
+};
+
+const FULFILLMENT_STATUSES = ["unfulfilled", "partially_fulfilled", "fulfilled"] as const;
+const FULFILLMENT_STATUS_LABEL: Record<string, string> = {
+  unfulfilled: "Unfulfilled",
+  partially_fulfilled: "Partially fulfilled",
+  fulfilled: "Fulfilled",
+};
+
+const SHIPPING_STATUSES = ["not_shipped", "shipped", "in_transit", "delivered", "failed"] as const;
+const SHIPPING_STATUS_LABEL: Record<string, string> = {
+  not_shipped: "Not shipped",
+  shipped: "Shipped",
+  in_transit: "In transit",
+  delivered: "Delivered",
+  failed: "Failed",
+};
+
+function formatAddress(a: AddressSnapshot | null | undefined): string {
+  if (!a) return "";
+  return [
+    a.companyName,
+    a.addressLine1,
+    a.addressLine2,
+    [a.city, a.district].filter(Boolean).join(", "),
+    a.province ? `${a.province} Province` : null,
+    a.postalCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
 
 const FILTERS: (OrderStatus | "all")[] = ["all", ...ORDER_STATUSES, "cancelled"];
 
@@ -86,6 +156,21 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
     setBusyId(order.id);
     setError(null);
     const { error } = await supabase.rpc("set_online_order_status", { p_order_id: order.id, p_status: status });
+    setBusyId(null);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function setTrackingField(order: OnlineOrder, field: "fulfillment_status" | "shipping_status", value: string) {
+    setBusyId(order.id);
+    setError(null);
+    const { error } = await supabase
+      .from("online_orders")
+      .update({ [field]: value, updated_at: new Date().toISOString() })
+      .eq("id", order.id);
     setBusyId(null);
     if (error) {
       setError(error.message);
@@ -158,6 +243,11 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                       {PAYMENT_STATUS_LABEL[o.payment_status] ?? o.payment_status}
                     </span>
                   )}
+                  {o.fulfillment_status && o.fulfillment_status !== "unfulfilled" && (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
+                      {FULFILLMENT_STATUS_LABEL[o.fulfillment_status] ?? o.fulfillment_status}
+                    </span>
+                  )}
                   <span className="ml-auto text-sm text-muted">{formatDateTime(o.created_at)}</span>
                   <span className="font-bold tabular-nums text-ink">{formatLKR(Number(o.total))}</span>
                 </button>
@@ -187,15 +277,35 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                       </div>
                       <div>
                         <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-                          {o.fulfilment === "delivery" ? "Deliver to" : "Pickup"}
+                          {o.fulfilment === "delivery" ? "Shipping address" : "Pickup"}
                         </div>
                         <div className="mt-1 text-ink">
                           {o.fulfilment === "delivery"
-                            ? [o.address_line, o.city, o.district].filter(Boolean).join(", ")
+                            ? formatAddress(o.shipping_address) || [o.address_line, o.city, o.district].filter(Boolean).join(", ")
                             : "Amil Auto Hub - Kottawa"}
                         </div>
                         {o.delivery_zone && <div className="text-muted">Zone: {o.delivery_zone}</div>}
                       </div>
+                    </div>
+
+                    {o.fulfilment === "delivery" && o.billing_address && (
+                      <div className="text-sm">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted">Billing address</div>
+                        <div className="mt-1 text-ink">
+                          {JSON.stringify(o.billing_address) === JSON.stringify(o.shipping_address) ? "Same as shipping address" : formatAddress(o.billing_address)}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
+                      <span className="font-mono">Order ID: {o.id}</span>
+                      {o.customer_account_id ? (
+                        <Link href={`/admin/customers/${o.customer_account_id}`} className="font-mono text-accent hover:underline">
+                          Customer ID: {o.customer_account_id}
+                        </Link>
+                      ) : (
+                        <span>Guest checkout</span>
+                      )}
                     </div>
 
                     {o.notes && (
@@ -209,6 +319,7 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                       <thead>
                         <tr className="text-left text-xs uppercase tracking-wide text-muted">
                           <th className="py-1 font-semibold">Item</th>
+                          <th className="py-1 font-semibold">SKU</th>
                           <th className="py-1 text-right font-semibold">Price</th>
                           <th className="py-1 text-right font-semibold">Qty</th>
                           <th className="py-1 text-right font-semibold">Total</th>
@@ -218,6 +329,7 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                         {o.online_order_items.map((i, idx) => (
                           <tr key={idx} className="border-t border-card">
                             <td className="py-1.5 text-ink">{i.name_snapshot}</td>
+                            <td className="py-1.5 text-muted">{i.sku_snapshot ?? "-"}</td>
                             <td className="py-1.5 text-right tabular-nums">{formatLKR(Number(i.unit_price))}</td>
                             <td className="py-1.5 text-right tabular-nums">{Number(i.qty)}</td>
                             <td className="py-1.5 text-right tabular-nums">{formatLKR(Number(i.line_total))}</td>
@@ -225,30 +337,117 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                         ))}
                         {Number(o.discount ?? 0) > 0 && (
                           <tr className="border-t border-card">
-                            <td colSpan={3} className="py-1.5 text-right text-muted">
+                            <td colSpan={4} className="py-1.5 text-right text-muted">
                               Discount{o.coupon_code ? ` (${o.coupon_code})` : ""}
                             </td>
                             <td className="py-1.5 text-right tabular-nums text-green-700">- {formatLKR(Number(o.discount))}</td>
                           </tr>
                         )}
                         <tr className="border-t border-card">
-                          <td colSpan={3} className="py-1.5 text-right text-muted">
+                          <td colSpan={4} className="py-1.5 text-right text-muted">
                             Delivery
                           </td>
                           <td className="py-1.5 text-right tabular-nums">{formatLKR(Number(o.delivery_fee))}</td>
                         </tr>
+                        {Number(o.tax_amount ?? 0) > 0 && (
+                          <tr className="border-t border-card">
+                            <td colSpan={4} className="py-1.5 text-right text-muted">
+                              Tax
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums">{formatLKR(Number(o.tax_amount))}</td>
+                          </tr>
+                        )}
                         <tr>
-                          <td colSpan={3} className="py-1.5 text-right font-bold text-ink">
+                          <td colSpan={4} className="py-1.5 text-right font-bold text-ink">
                             Total
                           </td>
                           <td className="py-1.5 text-right font-bold tabular-nums text-ink">{formatLKR(Number(o.total))}</td>
                         </tr>
+                        {(Number(o.loyalty_points_earned ?? 0) > 0 || Number(o.loyalty_points_used ?? 0) > 0) && (
+                          <tr className="border-t border-card text-xs text-muted">
+                            <td colSpan={5} className="py-1.5 text-right">
+                              {Number(o.loyalty_points_used ?? 0) > 0 && <span>{o.loyalty_points_used} loyalty points used</span>}
+                              {Number(o.loyalty_points_used ?? 0) > 0 && Number(o.loyalty_points_earned ?? 0) > 0 && " · "}
+                              {Number(o.loyalty_points_earned ?? 0) > 0 && <span>{o.loyalty_points_earned} loyalty points earned</span>}
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
+
+                    {o.online_payments && o.online_payments.length > 0 && (
+                      <div className="overflow-x-auto rounded-lg border border-card">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-surface text-left uppercase tracking-wide text-muted">
+                              <th className="px-3 py-2 font-semibold">Provider</th>
+                              <th className="px-3 py-2 font-semibold">Transaction ID</th>
+                              <th className="px-3 py-2 font-semibold">Status</th>
+                              <th className="px-3 py-2 text-right font-semibold">Amount</th>
+                              <th className="px-3 py-2 font-semibold">Date</th>
+                              <th className="px-3 py-2 font-semibold">Refund</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {o.online_payments.map((p) => (
+                              <tr key={p.id} className="border-t border-card">
+                                <td className="px-3 py-2 text-ink">{PAYMENT_LABEL[p.payment_provider] ?? p.payment_provider}</td>
+                                <td className="px-3 py-2 font-mono text-muted">{p.transaction_id ?? "-"}</td>
+                                <td className="px-3 py-2 text-ink">{PAYMENT_STATUS_LABEL[p.status] ?? p.status}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">
+                                  {p.currency} {formatLKR(Number(p.amount)).replace("Rs.", "").trim()}
+                                </td>
+                                <td className="px-3 py-2 text-muted">{p.payment_date ? formatDateTime(p.payment_date) : "-"}</td>
+                                <td className="px-3 py-2 text-muted">
+                                  {p.refund_status !== "none" ? `${p.refund_status} ${p.refund_amount ? `(${formatLKR(Number(p.refund_amount))})` : ""}` : "-"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-end gap-4 rounded-lg bg-surface p-3">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Fulfillment status</label>
+                        <select
+                          value={o.fulfillment_status ?? "unfulfilled"}
+                          disabled={busyId === o.id}
+                          onChange={(e) => setTrackingField(o, "fulfillment_status", e.target.value)}
+                          className="mt-1 rounded-lg border border-input bg-white px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-light"
+                        >
+                          {FULFILLMENT_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {FULFILLMENT_STATUS_LABEL[s]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Shipping status</label>
+                        <select
+                          value={o.shipping_status ?? "not_shipped"}
+                          disabled={busyId === o.id}
+                          onChange={(e) => setTrackingField(o, "shipping_status", e.target.value)}
+                          className="mt-1 rounded-lg border border-input bg-white px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-light"
+                        >
+                          {SHIPPING_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {SHIPPING_STATUS_LABEL[s]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
 
                     {o.fulfilment === "delivery" && "courier" in o && (
                       <ShippingEditor order={o} onError={setError} onSaved={() => router.refresh()} />
                     )}
+
+                    {o.status === "cancelled" && <CancellationEditor order={o} onError={setError} onSaved={() => router.refresh()} />}
+
+                    {o.payment_status === "refunded" && <RefundEditor order={o} onError={setError} onSaved={() => router.refresh()} />}
 
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
@@ -296,6 +495,17 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                           Mark unpaid
                         </button>
                       )}
+                      {o.payment_status === "paid" && (
+                        <button
+                          disabled={busyId === o.id}
+                          onClick={() => {
+                            if (window.confirm(`Mark order #${o.order_number} as refunded?`)) void setPayment(o, "refunded");
+                          }}
+                          className="rounded-lg border border-btn-secondary-border px-4 py-2 text-sm font-semibold text-btn-secondary-text hover:bg-surface disabled:opacity-60"
+                        >
+                          Mark as refunded
+                        </button>
+                      )}
                       {o.status === "cancelled" && (
                         <button
                           disabled={busyId === o.id}
@@ -329,15 +539,27 @@ function ShippingEditor({
   const supabase = useMemo(() => createClient(), []);
   const [courier, setCourier] = useState(order.courier ?? "");
   const [tracking, setTracking] = useState(order.tracking_number ?? "");
+  const [estimated, setEstimated] = useState(order.estimated_delivery_date ?? "");
+  const [actual, setActual] = useState(order.actual_delivery_date ?? "");
   const [saving, setSaving] = useState(false);
-  const dirty = courier !== (order.courier ?? "") || tracking !== (order.tracking_number ?? "");
+  const dirty =
+    courier !== (order.courier ?? "") ||
+    tracking !== (order.tracking_number ?? "") ||
+    estimated !== (order.estimated_delivery_date ?? "") ||
+    actual !== (order.actual_delivery_date ?? "");
 
   async function save() {
     setSaving(true);
     onError(null);
     const { error } = await supabase
       .from("online_orders")
-      .update({ courier: courier.trim() || null, tracking_number: tracking.trim() || null, updated_at: new Date().toISOString() })
+      .update({
+        courier: courier.trim() || null,
+        tracking_number: tracking.trim() || null,
+        estimated_delivery_date: estimated || null,
+        actual_delivery_date: actual || null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", order.id);
     setSaving(false);
     if (error) onError(error.message);
@@ -363,6 +585,14 @@ function ShippingEditor({
         <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Tracking number</label>
         <input value={tracking} onChange={(e) => setTracking(e.target.value)} className={`${input} mt-1 w-52`} />
       </div>
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Estimated delivery</label>
+        <input type="date" value={estimated} onChange={(e) => setEstimated(e.target.value)} className={`${input} mt-1`} />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Actual delivery</label>
+        <input type="date" value={actual} onChange={(e) => setActual(e.target.value)} className={`${input} mt-1`} />
+      </div>
       <button
         onClick={save}
         disabled={!dirty || saving}
@@ -371,6 +601,111 @@ function ShippingEditor({
         {saving ? "Saving…" : "Save shipping"}
       </button>
       <span className="pb-2 text-xs text-muted">Customers see this on their order page.</span>
+    </div>
+  );
+}
+
+function CancellationEditor({
+  order,
+  onError,
+  onSaved,
+}: {
+  order: OnlineOrder;
+  onError: (message: string | null) => void;
+  onSaved: () => void;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [reason, setReason] = useState(order.cancellation_reason ?? "");
+  const [saving, setSaving] = useState(false);
+  const dirty = reason !== (order.cancellation_reason ?? "");
+
+  async function save() {
+    setSaving(true);
+    onError(null);
+    const { error } = await supabase
+      .from("online_orders")
+      .update({ cancellation_reason: reason.trim() || null, updated_at: new Date().toISOString() })
+      .eq("id", order.id);
+    setSaving(false);
+    if (error) onError(error.message);
+    else onSaved();
+  }
+
+  return (
+    <div className="flex flex-wrap items-end gap-3 rounded-lg bg-error-light p-3">
+      <div className="min-w-[16rem] flex-1">
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Cancellation reason</label>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. Out of stock, customer requested"
+          className="mt-1 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm text-ink placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-light"
+        />
+      </div>
+      <button
+        onClick={save}
+        disabled={!dirty || saving}
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+      >
+        {saving ? "Saving…" : "Save"}
+      </button>
+    </div>
+  );
+}
+
+function RefundEditor({
+  order,
+  onError,
+  onSaved,
+}: {
+  order: OnlineOrder;
+  onError: (message: string | null) => void;
+  onSaved: () => void;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [amount, setAmount] = useState(order.refund_amount != null ? String(order.refund_amount) : "");
+  const [reason, setReason] = useState(order.refund_reason ?? "");
+  const [saving, setSaving] = useState(false);
+  const dirty = amount !== (order.refund_amount != null ? String(order.refund_amount) : "") || reason !== (order.refund_reason ?? "");
+
+  async function save() {
+    const parsed = amount.trim() ? Number(amount) : null;
+    if (parsed != null && (!Number.isFinite(parsed) || parsed < 0)) {
+      onError("Please enter a valid refund amount.");
+      return;
+    }
+    setSaving(true);
+    onError(null);
+    const { error } = await supabase.rpc("set_online_order_refund", {
+      p_order_id: order.id,
+      p_refund_amount: parsed,
+      p_refund_reason: reason.trim() || null,
+    });
+    setSaving(false);
+    if (error) onError(error.message);
+    else onSaved();
+  }
+
+  const input =
+    "rounded-lg border border-input bg-white px-3 py-2 text-sm text-ink placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-light";
+  return (
+    <div className="flex flex-wrap items-end gap-3 rounded-lg bg-amber-50 p-3">
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Refund amount</label>
+        <input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={`${input} mt-1 w-32`} />
+      </div>
+      <div className="min-w-[16rem] flex-1">
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted">Refund reason</label>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} className={`${input} mt-1 w-full`} />
+      </div>
+      {order.refunded_at && <span className="pb-2 text-xs text-muted">Refunded {formatDateTime(order.refunded_at)}</span>}
+      <button
+        onClick={save}
+        disabled={!dirty || saving}
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
+      >
+        {saving ? "Saving…" : "Save refund"}
+      </button>
     </div>
   );
 }
