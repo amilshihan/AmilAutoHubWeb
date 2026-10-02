@@ -19,6 +19,12 @@ export type PublicProduct = {
   collection: CollectionSlug;
   imageUrl: string | null;
   featured: boolean;
+  isNew: boolean;
+  bestseller: boolean;
+  productCode: string | null;
+  productType: string | null;
+  subcategory: string | null;
+  shortDescription: string | null;
   compat: string[];
 };
 

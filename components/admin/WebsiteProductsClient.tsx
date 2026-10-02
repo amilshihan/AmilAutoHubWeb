@@ -24,6 +24,15 @@ export type WebProduct = {
   image_url: string | null;
   is_featured: boolean;
   is_online: boolean;
+  product_ref: string;
+  product_code: string | null;
+  brand: string | null;
+  subcategory: string | null;
+  product_type: string | null;
+  short_description: string | null;
+  status: "active" | "draft" | "disabled";
+  is_new: boolean;
+  is_bestseller: boolean;
 };
 
 type Filter = "all" | "online" | "hidden" | "featured" | "no-image" | "discounted";
@@ -71,7 +80,7 @@ export default function WebsiteProductsClient({
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((p) => {
-      if (q && !`${p.name} ${p.sku ?? ""}`.toLowerCase().includes(q)) return false;
+      if (q && !`${p.name} ${p.sku ?? ""} ${p.product_ref} ${p.product_code ?? ""} ${p.brand ?? ""}`.toLowerCase().includes(q)) return false;
       switch (filter) {
         case "online":
           return p.is_online;
@@ -162,7 +171,7 @@ export default function WebsiteProductsClient({
             setQuery(e.target.value);
             setPage(1);
           }}
-          placeholder="Search name or SKU…"
+          placeholder="Search name, SKU, ID or brand…"
           className={`${inputBase} max-w-xs`}
         />
         <div className="flex flex-wrap gap-2">
@@ -214,7 +223,10 @@ export default function WebsiteProductsClient({
                     {p.name}
                   </button>
                   <div className="text-xs text-muted">
-                    {p.sku ? `SKU ${p.sku}` : "No SKU"}
+                    {p.product_ref} · {p.sku ? `SKU ${p.sku}` : "No SKU"}
+                    {p.status === "disabled" ? " · Disabled" : p.status === "draft" ? " · Draft" : ""}
+                    {p.is_new ? " · New" : ""}
+                    {p.is_bestseller ? " · Bestseller" : ""}
                     {p.is_drum ? " · Drum (never shown online)" : ""}
                   </div>
                 </td>

@@ -8,6 +8,7 @@ import ProductVisual from "@/components/shop/ProductVisual";
 import Money from "@/components/shop/Money";
 import ProductCard, { PriceBlock, StockBadge } from "@/components/shop/ProductCard";
 import AddToCartButton from "@/components/shop/AddToCartButton";
+import WishlistButton from "@/components/shop/WishlistButton";
 import { ChevronIcon, PinIcon, ShieldIcon, TruckIcon } from "@/components/shop/Icons";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -71,11 +72,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             brand={product.brand}
             collection={product.collection}
           />
-          {product.discountPct !== null && (
-            <span className="absolute left-4 top-4 rounded-lg bg-deal px-3 py-1.5 text-sm font-extrabold text-white">
-              {product.discountPct}% OFF
-            </span>
-          )}
+          <div className="absolute left-4 top-4 flex flex-col items-start gap-1.5">
+            {product.discountPct !== null && (
+              <span className="rounded-lg bg-deal px-3 py-1.5 text-sm font-extrabold text-white">{product.discountPct}% OFF</span>
+            )}
+            {product.isNew && <span className="rounded-lg bg-charcoal px-3 py-1.5 text-xs font-extrabold uppercase text-amil">New</span>}
+            {product.bestseller && (
+              <span className="rounded-lg bg-amil px-3 py-1.5 text-xs font-extrabold uppercase text-charcoal">Bestseller</span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-5">
@@ -89,7 +94,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               </Link>
             )}
             <h1 className="mt-1 text-3xl font-extrabold leading-tight tracking-tight text-charcoal">{product.name}</h1>
+            {product.shortDescription && <p className="mt-2 text-base text-charcoal/70">{product.shortDescription}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-charcoal/60">
+              {product.productType && <span>{product.productType}</span>}
+              {product.subcategory && <span>{product.subcategory}</span>}
+              {product.productCode && <span>Code: {product.productCode}</span>}
               {product.sku && <span>SKU: {product.sku}</span>}
               {product.packSize && <span>Pack size: {product.packSize}</span>}
               <StockBadge product={product} />
@@ -104,6 +113,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           )}
 
           <AddToCartButton product={product} withQuantity />
+          <WishlistButton
+            productId={product.id}
+            withLabel
+            className="self-start rounded-lg border border-charcoal/15 px-4 py-2.5 hover:border-deal/40"
+          />
 
           {product.description && <p className="leading-relaxed text-charcoal/75">{product.description}</p>}
 

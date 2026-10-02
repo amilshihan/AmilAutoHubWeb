@@ -3,6 +3,7 @@ import type { PublicProduct } from "@/lib/shop/types";
 import Money from "@/components/shop/Money";
 import ProductVisual from "@/components/shop/ProductVisual";
 import AddToCartButton from "@/components/shop/AddToCartButton";
+import WishlistButton from "@/components/shop/WishlistButton";
 import { ShieldIcon } from "@/components/shop/Icons";
 
 export function StockBadge({ product }: { product: PublicProduct }) {
@@ -38,7 +39,7 @@ export default function ProductCard({
   verifiedFit?: boolean;
 }) {
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-charcoal/10 bg-white transition-shadow hover:shadow-lg hover:shadow-charcoal/10">
+    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-charcoal/10 bg-white transition-shadow hover:shadow-lg hover:shadow-charcoal/10">
       <Link href={`/product/${product.id}`} className="relative block aspect-[4/3] overflow-hidden">
         <ProductVisual
           imageUrl={product.imageUrl}
@@ -47,17 +48,25 @@ export default function ProductCard({
           collection={product.collection}
           className="transition-transform duration-300 group-hover:scale-[1.03]"
         />
-        {product.discountPct !== null && (
-          <span className="absolute left-2 top-2 rounded-md bg-deal px-2 py-1 text-xs font-extrabold text-white">
-            {product.discountPct}% OFF
-          </span>
-        )}
+        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
+          {product.discountPct !== null && (
+            <span className="rounded-md bg-deal px-2 py-1 text-xs font-extrabold text-white">{product.discountPct}% OFF</span>
+          )}
+          {product.isNew && <span className="rounded-md bg-charcoal px-2 py-1 text-[11px] font-extrabold uppercase text-amil">New</span>}
+          {product.bestseller && (
+            <span className="rounded-md bg-amil px-2 py-1 text-[11px] font-extrabold uppercase text-charcoal">Bestseller</span>
+          )}
+        </div>
         {verifiedFit && (
-          <span className="absolute right-2 top-2 rounded-md bg-stock px-2 py-1 text-[11px] font-bold text-white">
+          <span className="absolute bottom-2 left-2 rounded-md bg-stock px-2 py-1 text-[11px] font-bold text-white">
             Fits your vehicle
           </span>
         )}
       </Link>
+      <WishlistButton
+        productId={product.id}
+        className="absolute right-2 top-2 h-8 w-8 rounded-full bg-white/90 shadow-sm hover:bg-white"
+      />
 
       <div className="flex flex-1 flex-col gap-2 p-3.5">
         <div className="min-h-[1rem] text-[11px] font-bold uppercase tracking-wider text-charcoal/50">

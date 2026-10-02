@@ -5,6 +5,7 @@ import { useCart } from "@/components/shop/CartProvider";
 import { useCurrency } from "@/components/shop/CurrencyProvider";
 import CurrencyNotice from "@/components/shop/CurrencyNotice";
 import ProductVisual from "@/components/shop/ProductVisual";
+import SaveCartButton from "@/components/shop/SaveCartButton";
 import { cartMessage, waLink } from "@/lib/shop/whatsapp";
 import { CartIcon, MinusIcon, PlusIcon, TrashIcon, WhatsAppIcon } from "@/components/shop/Icons";
 
@@ -114,6 +115,7 @@ export default function CartView() {
           >
             <WhatsAppIcon width={18} height={18} /> Order via WhatsApp
           </a>
+          <SaveCartButton />
           <Link href="/shop" className="block text-center text-sm font-semibold text-charcoal/65 underline hover:text-charcoal">
             Continue shopping
           </Link>

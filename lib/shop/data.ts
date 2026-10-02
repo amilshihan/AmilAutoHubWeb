@@ -111,11 +111,17 @@ function toPublicProduct(
     lowStock: qty > 0 && p.low_stock_warning_enabled !== false && qty <= num(p.low_stock_threshold),
     unit: str(p.unit) ?? "pcs",
     packSize: str(p.pack_size),
-    brand: deriveBrand(path),
+    brand: str(p.brand) ?? deriveBrand(path),
     categoryPath: path,
     collection: assignCollection(name, path),
     imageUrl: safeImageUrl(p.image_url),
     featured: p.is_featured === true,
+    isNew: p.is_new === true,
+    bestseller: p.is_bestseller === true,
+    productCode: str(p.product_code),
+    productType: str(p.product_type),
+    subcategory: str(p.subcategory),
+    shortDescription: str(p.short_description),
     compat: (compat.get(id) ?? []).map(compatLabel),
   };
 }
@@ -208,7 +214,7 @@ export type QueryResult = {
 const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 function haystack(p: PublicProduct) {
-  const text = [p.name, p.brand, p.sku, p.description, p.categoryPath.join(" "), p.compat.join(" ")]
+  const text = [p.name, p.brand, p.sku, p.productCode, p.productType, p.subcategory, p.shortDescription, p.description, p.categoryPath.join(" "), p.compat.join(" ")]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
