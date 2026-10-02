@@ -24,8 +24,18 @@ export type PublicProduct = {
   productCode: string | null;
   productType: string | null;
   subcategory: string | null;
+  subcategorySlug: string | null;
   shortDescription: string | null;
   compat: string[];
+};
+
+export type PublicMedia = {
+  id: string;
+  mediaType: "image" | "video";
+  imageType: "main" | "gallery" | "label" | "technical" | "video";
+  url: string;
+  alt: string | null;
+  isPrimary: boolean;
 };
 
 export type CartLine = {

@@ -16,6 +16,7 @@ export default async function ShopListing({
   query,
   rawParams,
   collection,
+  subcategory,
   title,
   intro,
 }: {
@@ -23,14 +24,25 @@ export default async function ShopListing({
   query: ShopQuery;
   rawParams: RawParams;
   collection?: CollectionSlug;
+  subcategory?: string;
   title?: string;
   intro?: string;
 }) {
   const [result, shop, vehicles] = await Promise.all([queryProducts(query), getShopInfo(), getVehicleCatalog()]);
 
   const allPath = basePath.startsWith("/shop/") ? "/shop" : basePath;
+  const subcategories = collection ? (COLLECTION_BY_SLUG[collection].subcategories ?? []) : [];
+  const activeSub = subcategories.find((sc) => sc.slug === subcategory);
+  const subCount = (slug: string) => result.subcategoryFacets.find((f) => f.slug === slug)?.count ?? 0;
   const heading =
-    title ?? (collection ? COLLECTION_BY_SLUG[collection].label : query.q ? `Results for "${query.q}"` : "All Products");
+    title ??
+    (activeSub
+      ? activeSub.label
+      : collection
+        ? COLLECTION_BY_SLUG[collection].label
+        : query.q
+          ? `Results for "${query.q}"`
+          : "All Products");
   const vehicleText = query.make ? vehicleLabel({ make: query.make, model: query.model, year: query.year }) : "";
 
   const href = (overrides: Record<string, string | undefined>) =>
@@ -54,7 +66,17 @@ export default async function ShopListing({
               Shop
             </Link>
             <ChevronIcon width={12} height={12} />
-            <span className="font-semibold text-charcoal">{COLLECTION_BY_SLUG[collection].label}</span>
+            {activeSub ? (
+              <>
+                <Link href={buildHref(`/shop/${collection}`, rawParams, { page: undefined })} className="hover:text-charcoal">
+                  {COLLECTION_BY_SLUG[collection].label}
+                </Link>
+                <ChevronIcon width={12} height={12} />
+                <span className="font-semibold text-charcoal">{activeSub.label}</span>
+              </>
+            ) : (
+              <span className="font-semibold text-charcoal">{COLLECTION_BY_SLUG[collection].label}</span>
+            )}
           </>
         ) : (
           <span className="font-semibold text-charcoal">{heading}</span>
@@ -64,7 +86,40 @@ export default async function ShopListing({
       <div className="mb-5">
         <h1 className="text-3xl font-extrabold tracking-tight text-charcoal">{heading}</h1>
         {(intro || (collection && COLLECTION_BY_SLUG[collection].blurb)) && (
-          <p className="mt-1 max-w-2xl text-charcoal/65">{intro ?? COLLECTION_BY_SLUG[collection!].blurb}</p>
+          <p className="mt-1 max-w-2xl text-charcoal/65">
+            {intro ?? (activeSub ? `${activeSub.label} from our ${COLLECTION_BY_SLUG[collection!].label.toLowerCase()} range.` : COLLECTION_BY_SLUG[collection!].blurb)}
+          </p>
+        )}
+        {collection && subcategories.some((sc) => subCount(sc.slug) > 0) && (
+          <ul aria-label="Subcategories" className="mt-4 flex flex-wrap gap-2">
+            <li>
+              <Link
+                href={buildHref(`/shop/${collection}`, rawParams, { page: undefined })}
+                className={`inline-flex rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                  !activeSub ? "border-charcoal bg-charcoal text-white" : "border-charcoal/20 text-charcoal hover:bg-charcoal/5"
+                }`}
+              >
+                All {COLLECTION_BY_SLUG[collection].label}
+              </Link>
+            </li>
+            {subcategories.map((sc) => {
+              const n = subCount(sc.slug);
+              const active = sc.slug === subcategory;
+              if (n === 0 && !active) return null;
+              return (
+                <li key={sc.slug}>
+                  <Link
+                    href={buildHref(`/shop/${collection}/${sc.slug}`, rawParams, { page: undefined })}
+                    className={`inline-flex rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                      active ? "border-charcoal bg-charcoal text-white" : "border-charcoal/20 text-charcoal hover:bg-charcoal/5"
+                    }`}
+                  >
+                    {sc.label} <span className={active ? "ml-1.5 text-white/70" : "ml-1.5 text-charcoal/45"}>{n}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 
@@ -208,7 +263,7 @@ export default async function ShopListing({
     return (
       <div className="space-y-6 text-sm">
         <div>
-          <h2 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-charcoal/55">Product type</h2>
+          <h2 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-charcoal/55">Categories</h2>
           <ul className="space-y-0.5">
             <li>
               <Link
@@ -226,11 +281,31 @@ export default async function ShopListing({
                 <li key={c.slug}>
                   <Link
                     href={buildHref(`/shop/${c.slug}`, rawParams, { page: undefined })}
-                    className={`flex justify-between rounded-md px-2 py-1.5 hover:bg-charcoal/5 ${active ? "bg-amil-soft font-bold" : ""}`}
+                    className={`flex justify-between rounded-md px-2 py-1.5 hover:bg-charcoal/5 ${active && !activeSub ? "bg-amil-soft font-bold" : active ? "font-bold" : ""}`}
                   >
                     <span>{c.label}</span>
                     <span className="text-charcoal/45">{count}</span>
                   </Link>
+                  {active && subcategories.length > 0 && (
+                    <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-charcoal/15 pl-2">
+                      {subcategories.map((sc) => {
+                        const n = subCount(sc.slug);
+                        const subActive = sc.slug === subcategory;
+                        if (n === 0 && !subActive) return null;
+                        return (
+                          <li key={sc.slug}>
+                            <Link
+                              href={buildHref(`/shop/${c.slug}/${sc.slug}`, rawParams, { page: undefined })}
+                              className={`flex justify-between rounded-md px-2 py-1.5 hover:bg-charcoal/5 ${subActive ? "bg-amil-soft font-bold" : ""}`}
+                            >
+                              <span>{sc.label}</span>
+                              <span className="text-charcoal/45">{n}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </li>
               );
             })}

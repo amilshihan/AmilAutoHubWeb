@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveOrCreateGroupPath, type CategoryRow } from "@/lib/groups";
 import { btnPrimary, btnSecondary, fieldLabel, helperText, inputBase } from "@/lib/ui";
 import type { WebProduct } from "@/components/admin/WebsiteProductsClient";
-import ProductImageUploader from "@/components/admin/ProductImageUploader";
+import ProductMediaManager, { loadProductMedia, saveProductMedia, type MediaItem } from "@/components/admin/ProductMediaManager";
+import { COLLECTIONS } from "@/lib/shop/collections";
+
+const SUBCATEGORY_GROUPS = COLLECTIONS.filter((c) => c.subcategories?.length).map((c) => ({
+  label: c.label,
+  items: (c.subcategories ?? []).map((sc) => sc.label),
+}));
 
 const PRODUCT_TYPES = ["Lubricant", "Filter", "Spare part", "Battery", "Coolant / fluid", "Accessory", "Tool", "Car care"];
 
@@ -26,7 +32,6 @@ type Form = {
   sell_price: string;
   retail_price: string;
   qty_on_hand: string;
-  image_url: string;
   is_featured: boolean;
   is_new: boolean;
   is_bestseller: boolean;
@@ -48,7 +53,6 @@ const emptyForm: Form = {
   sell_price: "",
   retail_price: "",
   qty_on_hand: "0",
-  image_url: "",
   is_featured: false,
   is_new: false,
   is_bestseller: false,
@@ -71,7 +75,6 @@ function toForm(p: WebProduct, categoryPath: string): Form {
     sell_price: String(p.sell_price ?? ""),
     retail_price: p.retail_price ? String(p.retail_price) : "",
     qty_on_hand: String(p.qty_on_hand ?? 0),
-    image_url: p.image_url ?? "",
     is_featured: p.is_featured,
     is_new: p.is_new,
     is_bestseller: p.is_bestseller,
@@ -93,6 +96,26 @@ export default function ProductFormModal({
   const [form, setForm] = useState<Form>(product ? toForm(product, product.categoryPath) : emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [originalMediaIds, setOriginalMediaIds] = useState<string[]>([]);
+  const [mediaReady, setMediaReady] = useState(!product);
+  const productId = product?.id;
+
+  useEffect(() => {
+    if (!productId) return;
+    let cancelled = false;
+    loadProductMedia(productId)
+      .then((items) => {
+        if (cancelled) return;
+        setMedia(items);
+        setOriginalMediaIds(items.map((i) => i.id!).filter(Boolean));
+        setMediaReady(true);
+      })
+      .catch((e: Error) => !cancelled && setError(`Could not load this product's media: ${e.message}`));
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
   const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   async function save() {
@@ -136,7 +159,6 @@ export default function ProductFormModal({
       description: form.description.trim() || null,
       sell_price: sellPrice,
       retail_price: retailPrice,
-      image_url: form.image_url.trim() || null,
       is_featured: form.is_featured,
       is_new: form.is_new,
       is_bestseller: form.is_bestseller,
@@ -152,14 +174,20 @@ export default function ProductFormModal({
           .select()
           .single();
 
-    setSaving(false);
     if (result.error) {
+      setSaving(false);
       if (result.error.code === "23505") {
         return setError(
           result.error.message.includes("barcode") ? "That barcode is already used by another product." : "That SKU is already used by another product."
         );
       }
       return setError(result.error.message);
+    }
+    const mediaError = await saveProductMedia((result.data as WebProduct).id, media, originalMediaIds);
+    setSaving(false);
+    if (mediaError) {
+      setError(`The product was saved, but its media could not be: ${mediaError}`);
+      return;
     }
     onSaved(result.data as WebProduct);
   }
@@ -223,7 +251,19 @@ export default function ProductFormModal({
 
           <div>
             <label className={fieldLabel}>Subcategory</label>
-            <input className={`${inputBase} mt-1`} placeholder="Fully Synthetic" value={form.subcategory} onChange={(e) => set("subcategory", e.target.value)} />
+            <input
+              list="subcategory-options"
+              className={`${inputBase} mt-1`}
+              placeholder="Fully Synthetic"
+              value={form.subcategory}
+              onChange={(e) => set("subcategory", e.target.value)}
+            />
+            <datalist id="subcategory-options">
+              {SUBCATEGORY_GROUPS.flatMap((g) => g.items.map((i) => <option key={`${g.label}-${i}`} value={i} label={g.label} />))}
+            </datalist>
+            <p className={`${helperText} mt-1`}>
+              Pick one of the site&apos;s subcategories ({SUBCATEGORY_GROUPS.map((g) => g.label).join(", ")}). Left blank, it is guessed from the product name.
+            </p>
           </div>
           <div>
             <label className={fieldLabel}>Product type</label>
@@ -277,9 +317,13 @@ export default function ProductFormModal({
             <textarea rows={4} className={`${inputBase} mt-1`} value={form.description} onChange={(e) => set("description", e.target.value)} />
           </div>
           <div className="sm:col-span-2">
-            <label className={fieldLabel}>Product photo</label>
-            <div className="mt-1">
-              <ProductImageUploader value={form.image_url} onChange={(url) => set("image_url", url)} />
+            <label className={fieldLabel}>Product images &amp; video</label>
+            <div className="mt-2">
+              {mediaReady ? (
+                <ProductMediaManager items={media} onChange={setMedia} productName={form.name} />
+              ) : (
+                <p className={helperText}>Loading media…</p>
+              )}
             </div>
           </div>
 
@@ -308,7 +352,7 @@ export default function ProductFormModal({
         </div>
 
         <div className="mt-6 flex gap-2">
-          <button className={btnPrimary} onClick={save} disabled={saving}>
+          <button className={btnPrimary} onClick={save} disabled={saving || !mediaReady}>
             {saving ? "Saving…" : product ? "Save changes" : "Create product"}
           </button>
           <button className={btnSecondary} onClick={onClose} disabled={saving}>

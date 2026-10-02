@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProduct, getRelated, getShopInfo } from "@/lib/shop/data";
+import { getProduct, getProductMedia, getRelated, getShopInfo } from "@/lib/shop/data";
 import { COLLECTION_BY_SLUG } from "@/lib/shop/collections";
 import { formatLKR } from "@/lib/shop/format";
-import ProductVisual from "@/components/shop/ProductVisual";
+import ProductGallery from "@/components/shop/ProductGallery";
 import Money from "@/components/shop/Money";
 import ProductCard, { PriceBlock, StockBadge } from "@/components/shop/ProductCard";
 import AddToCartButton from "@/components/shop/AddToCartButton";
@@ -26,7 +26,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const product = await getProduct(id);
   if (!product) notFound();
 
-  const [related, shop] = await Promise.all([getRelated(product), getShopInfo()]);
+  const [related, shop, media] = await Promise.all([getRelated(product), getShopInfo(), getProductMedia(product.id)]);
   const collection = COLLECTION_BY_SLUG[product.collection];
 
   const jsonLd = {
@@ -65,13 +65,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-        <div className="relative aspect-square overflow-hidden rounded-2xl border border-charcoal/10">
-          <ProductVisual
-            imageUrl={product.imageUrl}
-            name={product.name}
-            brand={product.brand}
-            collection={product.collection}
-          />
+        <ProductGallery media={media} name={product.name} brand={product.brand} collection={product.collection} fallbackImageUrl={product.imageUrl}>
           <div className="absolute left-4 top-4 flex flex-col items-start gap-1.5">
             {product.discountPct !== null && (
               <span className="rounded-lg bg-deal px-3 py-1.5 text-sm font-extrabold text-white">{product.discountPct}% OFF</span>
@@ -81,7 +75,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               <span className="rounded-lg bg-amil px-3 py-1.5 text-xs font-extrabold uppercase text-charcoal">Bestseller</span>
             )}
           </div>
-        </div>
+        </ProductGallery>
 
         <div className="flex flex-col gap-5">
           <div>
@@ -97,7 +91,14 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             {product.shortDescription && <p className="mt-2 text-base text-charcoal/70">{product.shortDescription}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-charcoal/60">
               {product.productType && <span>{product.productType}</span>}
-              {product.subcategory && <span>{product.subcategory}</span>}
+              {product.subcategory &&
+                (product.subcategorySlug ? (
+                  <Link href={`/shop/${product.collection}/${product.subcategorySlug}`} className="font-semibold hover:text-charcoal hover:underline">
+                    {product.subcategory}
+                  </Link>
+                ) : (
+                  <span>{product.subcategory}</span>
+                ))}
               {product.productCode && <span>Code: {product.productCode}</span>}
               {product.sku && <span>SKU: {product.sku}</span>}
               {product.packSize && <span>Pack size: {product.packSize}</span>}

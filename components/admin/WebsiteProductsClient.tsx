@@ -102,7 +102,7 @@ export default function WebsiteProductsClient({
   const current = Math.min(page, pages);
   const shown = visible.slice((current - 1) * PAGE, current * PAGE);
 
-  async function patch(id: string, fields: Partial<Pick<WebProduct, "is_online" | "is_featured" | "image_url" | "retail_price">>) {
+  async function patch(id: string, fields: Partial<Pick<WebProduct, "is_online" | "is_featured" | "retail_price">>) {
     setError(null);
     setSavingId(id);
     const previous = rows;
@@ -211,7 +211,7 @@ export default function WebsiteProductsClient({
               <th className="px-3 py-3 font-semibold text-right">Stock</th>
               <th className="px-3 py-3 font-semibold text-center">On website</th>
               <th className="px-3 py-3 font-semibold text-center">Featured</th>
-              <th className="px-3 py-3 font-semibold">Image URL</th>
+              <th className="px-3 py-3 font-semibold">Image</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -266,15 +266,15 @@ export default function WebsiteProductsClient({
                   />
                 </td>
                 <td className="px-3 py-2.5">
-                  <input
-                    defaultValue={p.image_url ?? ""}
-                    placeholder="https://…"
-                    onBlur={(e) => {
-                      const value = e.target.value.trim() || null;
-                      if (value !== (p.image_url ?? null)) void patch(p.id, { image_url: value });
-                    }}
-                    className={`${inputBase} w-56 py-1.5`}
-                  />
+                  <button type="button" onClick={() => setEditing(p)} className="flex items-center gap-2 text-left" aria-label={`Edit images and video for ${p.name}`}>
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image_url} alt="" className="h-10 w-10 rounded border border-input bg-white object-contain" />
+                    ) : (
+                      <span className="flex h-10 w-10 items-center justify-center rounded border border-dashed border-input text-[10px] text-muted">None</span>
+                    )}
+                    <span className="text-xs font-semibold text-accent hover:underline">Manage</span>
+                  </button>
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="flex justify-end gap-3 text-sm font-semibold">
