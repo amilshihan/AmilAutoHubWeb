@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { btnPrimary, btnSecondary, cardSurface, fieldLabel, helperText, inputBase, sectionTitle } from "@/lib/ui";
 import { PAYMENT_LABEL } from "@/lib/shop/config";
 import type { PaymentMethodId, StoreSettings } from "@/lib/shop/settings-types";
+import { isValidEmail, isValidTimeZone, type SiteSettings } from "@/lib/shop/site-settings-types";
+import GeneralSettingsFields from "@/components/store/GeneralSettingsFields";
 
 const TABS = ["General", "Delivery", "Payments"] as const;
 type Tab = (typeof TABS)[number];
@@ -25,17 +27,24 @@ function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange
 
 export default function StoreSettingsClient({
   initial,
+  initialSite,
+  siteReady,
   gateways,
   siteUrl,
+  nowIso,
 }: {
   initial: StoreSettings;
+  initialSite: SiteSettings;
+  siteReady: boolean;
   gateways: { payhere: boolean };
   siteUrl: string;
+  nowIso: string;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [tab, setTab] = useState<Tab>("General");
   const [s, setS] = useState<StoreSettings>(initial);
+  const [site, setSite] = useState<SiteSettings>(initialSite);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
@@ -51,7 +60,45 @@ export default function StoreSettingsClient({
 
   async function save() {
     setMessage(null);
+    if (siteReady) {
+      if (!site.siteName.trim()) return setMessage({ kind: "error", text: "The website name can't be empty." });
+      if (site.siteUrl.trim() && !/^https?:\/\//i.test(site.siteUrl.trim())) return setMessage({ kind: "error", text: "The website URL must start with http:// or https://." });
+      const badEmail = site.emails.find((e) => e.address.trim() && !isValidEmail(e.address.trim()));
+      if (badEmail) return setMessage({ kind: "error", text: `"${badEmail.address}" is not a valid email address.` });
+      if (!isValidTimeZone(site.timeZone)) return setMessage({ kind: "error", text: "Choose a valid time zone." });
+      const badHours = Object.entries(site.hours).find(([, h]) => !h.closed && h.open >= h.close);
+      if (badHours) return setMessage({ kind: "error", text: `Closing time must be after opening time (${badHours[0].toUpperCase()}).` });
+    }
     setSaving(true);
+    if (siteReady) {
+      const { error: siteError } = await supabase
+        .from("site_settings")
+        .update({
+          site_name: site.siteName.trim(),
+          logo_url: site.logoUrl.trim() || null,
+          favicon_url: site.faviconUrl.trim() || null,
+          site_url: site.siteUrl.trim().replace(/\/$/, "") || null,
+          legal_name: site.legalName.trim() || null,
+          registration_number: site.registrationNumber.trim() || null,
+          tax_id: site.taxId.trim() || null,
+          address: site.address.trim() || null,
+          phones: site.phones.map((p) => ({ label: p.label.trim(), number: p.number.trim() })).filter((p) => p.number),
+          emails: site.emails.map((e) => ({ label: e.label.trim(), address: e.address.trim() })).filter((e) => e.address),
+          show_hours: site.showHours,
+          business_hours: site.hours,
+          time_zone: site.timeZone,
+          default_language: site.defaultLanguage,
+          date_format: site.dateFormat,
+          time_format: site.timeFormat,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", true);
+      if (siteError) {
+        setSaving(false);
+        setMessage({ kind: "error", text: siteError.message });
+        return;
+      }
+    }
     const { error } = await supabase
       .from("store_settings")
       .update({
@@ -77,9 +124,9 @@ export default function StoreSettingsClient({
     <div className="p-6 space-y-5 max-w-4xl">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Online Store</h1>
+          <h1 className="text-2xl font-bold text-ink">Website settings</h1>
           <p className="text-sm text-muted mt-1">
-            Website settings for delivery, contact details and payments. Products are managed under{" "}
+            General details, delivery, contact information and payments. Products are managed under{" "}
             <Link href="/admin/products" className="text-accent hover:underline">
               Website products
             </Link>{" "}
@@ -120,6 +167,19 @@ export default function StoreSettingsClient({
           </button>
         ))}
       </div>
+
+      {tab === "General" && !siteReady && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">General website settings are not set up yet.</p>
+          <p className="mt-1">
+            Run <code className="rounded bg-amber-100 px-1">supabase/migrations/0037_site_settings.sql</code> in the Supabase SQL editor, then reload this page.
+          </p>
+        </div>
+      )}
+
+      {tab === "General" && siteReady && (
+        <GeneralSettingsFields site={site} onChange={(patch) => setSite((cur) => ({ ...cur, ...patch }))} siteUrlHint={siteUrl} nowIso={nowIso} />
+      )}
 
       {tab === "General" && (
         <div className={`${cardSurface} p-5 space-y-5`}>

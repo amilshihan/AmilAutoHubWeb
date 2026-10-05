@@ -55,4 +55,11 @@ export type ShopInfo = {
   phone: string;
   whatsapp: string;
   pickupLocation: string;
+  logoUrl: string | null;
+  phones: { label: string; number: string }[];
+  emails: { label: string; address: string }[];
+  hours: { days: string; hours: string }[] | null;
+  registrationNumber: string | null;
+  taxId: string | null;
+  legalName: string | null;
 };

@@ -7,17 +7,19 @@ import CartButton from "@/components/shop/CartButton";
 import ShopNav from "@/components/shop/ShopNav";
 import CurrencySelect from "@/components/shop/CurrencySelect";
 
-export function Logo({ light = false }: { light?: boolean }) {
+export function Logo({ light = false, shop }: { light?: boolean; shop?: Pick<ShopInfo, "name" | "logoUrl"> }) {
+  const src = shop?.logoUrl || "/brand/amil-logo.png";
+  const name = shop?.name || "Amil Auto Hub";
   return (
-    <Link href="/" className="flex items-center" aria-label="Amil Auto Hub home">
+    <Link href="/" className="flex items-center" aria-label={`${name} home`}>
       {light ? (
         <span className="inline-flex items-center rounded-lg bg-white px-3 py-2 shadow-sm">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/amil-logo.png" alt="Amil Auto Hub" className="h-8 w-auto sm:h-9" />
+          <img src={src} alt={name} className="h-8 w-auto sm:h-9" />
         </span>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src="/brand/amil-logo.png" alt="Amil Auto Hub" className="h-10 w-auto sm:h-11" />
+        <img src={src} alt={name} className="h-10 w-auto sm:h-11" />
       )}
     </Link>
   );
@@ -57,7 +59,7 @@ export default function ShopHeader({ shop }: { shop: ShopInfo }) {
       <div className="sticky top-0 z-40 shadow-sm">
         <div className="border-b border-charcoal/10 bg-white">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2.5 px-4 py-3">
-            <Logo />
+            <Logo shop={shop} />
 
             <form action="/shop" method="get" role="search" className="order-last flex min-w-0 basis-full md:order-none md:flex-1 md:basis-auto">
               <label htmlFor="site-search" className="sr-only">

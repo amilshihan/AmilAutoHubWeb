@@ -2,6 +2,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ttlCache } from "@/lib/shop/cache";
 import { getStoreSettings } from "@/lib/shop/settings";
+import { getSiteSettings } from "@/lib/shop/siteSettings";
+import { hoursSummary } from "@/lib/shop/site-settings-types";
 import { COLLECTIONS, resolveSubcategory, type CollectionSlug } from "@/lib/shop/collections";
 import { SHOP_FALLBACK } from "@/lib/shop/config";
 import { mergeVehicleCatalog, type VehicleCatalog } from "@/lib/shop/vehicles";
@@ -435,15 +437,22 @@ export async function getProductMedia(partId: string): Promise<PublicMedia[]> {
 
 // ─── Shop info, vehicles, services ───────────────────────────
 
-export const getShopInfo = ttlCache<ShopInfo>(5 * 60_000, async () => {
+export const getShopInfo = ttlCache<ShopInfo>(30_000, async () => {
   const admin = createAdminClient();
   const { data } = await admin.from("shop_settings").select("shop_name, address, phone").maybeSingle();
-  const phone = str(data?.phone) ?? SHOP_FALLBACK.phone;
-  const settings = await getStoreSettings();
+  const [settings, site] = await Promise.all([getStoreSettings(), getSiteSettings()]);
+  const phone = site.phones[0]?.number ?? str(data?.phone) ?? SHOP_FALLBACK.phone;
   return {
-    name: str(data?.shop_name) ?? SHOP_FALLBACK.legalName,
-    address: str(data?.address) ?? SHOP_FALLBACK.address,
+    name: site.siteName,
+    address: site.address || (str(data?.address) ?? SHOP_FALLBACK.address),
     phone,
+    logoUrl: site.logoUrl || null,
+    phones: site.phones,
+    emails: site.emails,
+    hours: site.showHours ? hoursSummary(site.hours) : null,
+    registrationNumber: site.registrationNumber || null,
+    taxId: site.taxId || null,
+    legalName: site.legalName || null,
     whatsapp: toWhatsAppNumber(settings.whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || phone),
     pickupLocation: settings.pickupLocation,
   };

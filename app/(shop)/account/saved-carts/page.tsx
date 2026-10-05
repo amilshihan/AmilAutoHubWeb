@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentCustomer } from "@/lib/customer/auth";
 import { getSavedCarts, MAX_SAVED_CARTS } from "@/lib/customer/savedCarts";
-import { formatDate } from "@/lib/shop/format";
+import { getFormatters } from "@/lib/shop/siteSettings";
 import SavedCartList from "@/components/shop/SavedCartList";
 
 export const metadata: Metadata = { title: "Saved Carts", robots: { index: false } };
@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: "Saved Carts", robots: { index: false
 export default async function SavedCartsPage() {
   const customer = await getCurrentCustomer();
   if (!customer) redirect("/account");
+  const fmt = await getFormatters();
 
   const carts = await getSavedCarts(customer.id);
 
@@ -36,7 +37,7 @@ export default async function SavedCartsPage() {
                 id: c.id,
                 name: c.name,
                 itemCount: c.items.reduce((n, i) => n + i.qty, 0),
-                createdLabel: formatDate(c.createdAt),
+                createdLabel: fmt.date(c.createdAt),
               }))}
             />
           </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getShopInfo } from "@/lib/shop/data";
+import { getSiteSettings } from "@/lib/shop/siteSettings";
 import CartProvider from "@/components/shop/CartProvider";
 import CurrencyProvider from "@/components/shop/CurrencyProvider";
 import WishlistProvider from "@/components/shop/WishlistProvider";
@@ -8,14 +9,17 @@ import ShopFooter from "@/components/shop/ShopFooter";
 import CartToast from "@/components/shop/CartToast";
 import FloatingWhatsApp from "@/components/shop/FloatingWhatsApp";
 
-export const metadata: Metadata = {
-  title: {
-    default: "Amil Auto Hub | Genuine Parts, Engine Oils & Auto Services in Sri Lanka",
-    template: "%s | Amil Auto Hub",
-  },
-  description:
-    "Genuine spare parts, premium lubricants and automotive essentials. Find parts for your vehicle, order online with islandwide delivery, or pick up at Kottawa.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteSettings();
+  return {
+    title: {
+      default: `${site.siteName} | Genuine Parts, Engine Oils & Auto Services in Sri Lanka`,
+      template: `%s | ${site.siteName}`,
+    },
+    description:
+      "Genuine spare parts, premium lubricants and automotive essentials. Find parts for your vehicle, order online with islandwide delivery, or pick up at Kottawa.",
+  };
+}
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
   const shop = await getShopInfo();

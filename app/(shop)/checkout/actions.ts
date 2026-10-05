@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WESTERN_PROVINCE_DISTRICTS, type DeliveryZoneId } from "@/lib/shop/config";
 import { availablePaymentMethods, getStoreSettings } from "@/lib/shop/settings";
@@ -10,6 +11,7 @@ import { getCurrentCustomer } from "@/lib/customer/auth";
 import { POINT_VALUE_LKR, REFERRAL_REFERRER_BONUS } from "@/lib/customer/loyalty";
 import { logCustomerActivity } from "@/lib/customer/activityLog";
 import { formatLKR } from "@/lib/shop/format";
+import { sendOrderEmail } from "@/lib/email/orderEmail";
 
 export type PlaceOrderInput = {
   name: string;
@@ -306,6 +308,9 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
       source: clientIp(h),
     });
   }
+
+  // Confirmation email with the invoice; sent after the response so checkout is never slowed or broken by email.
+  after(() => sendOrderEmail(order.id as string, "placed"));
 
   return { ok: true, token: order.public_token as string, orderNumber: order.order_number as string };
 }

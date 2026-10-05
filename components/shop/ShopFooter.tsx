@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ShopInfo } from "@/lib/shop/types";
 import { COLLECTIONS } from "@/lib/shop/collections";
 import { Logo } from "@/components/shop/ShopHeader";
-import { PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/shop/Icons";
+import { ClockIcon, PhoneIcon, PinIcon, WhatsAppIcon } from "@/components/shop/Icons";
 import { waLink } from "@/lib/shop/whatsapp";
 
 export default function ShopFooter({ shop }: { shop: ShopInfo }) {
@@ -11,7 +11,7 @@ export default function ShopFooter({ shop }: { shop: ShopInfo }) {
     <footer className="mt-16 bg-charcoal text-sm text-white/70">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-4">
-          <Logo light />
+          <Logo light shop={shop} />
           <p className="max-w-xs leading-relaxed">
             Genuine parts, premium lubricants and automotive essentials for every vehicle on Sri Lankan roads.
           </p>
@@ -71,6 +71,21 @@ export default function ShopFooter({ shop }: { shop: ShopInfo }) {
                 Contact
               </Link>
             </li>
+            <li>
+              <Link href="/returns" className={linkClass}>
+                Return &amp; refund policy
+              </Link>
+            </li>
+            <li>
+              <Link href="/privacy" className={linkClass}>
+                Privacy policy
+              </Link>
+            </li>
+            <li>
+              <Link href="/terms" className={linkClass}>
+                Terms &amp; conditions
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -87,17 +102,47 @@ export default function ShopFooter({ shop }: { shop: ShopInfo }) {
             </li>
             <li className="flex gap-2.5">
               <PhoneIcon width={18} height={18} className="shrink-0 text-amil" />
-              <a href={`tel:${shop.phone.replace(/\s/g, "")}`} className={linkClass}>
-                {shop.phone}
-              </a>
+              <span className="space-y-0.5">
+                {[{ label: "", number: shop.phone }, ...shop.phones.slice(1)].map((p) => (
+                  <a key={p.number} href={`tel:${p.number.replace(/\s/g, "")}`} className={`block ${linkClass}`}>
+                    {p.number}
+                    {p.label && <span className="text-white/45"> ({p.label})</span>}
+                  </a>
+                ))}
+              </span>
             </li>
+            {shop.emails.map((e) => (
+              <li key={e.address} className="flex gap-2.5">
+                <span aria-hidden className="mt-0.5 w-[18px] shrink-0 text-center text-amil">
+                  @
+                </span>
+                <a href={`mailto:${e.address}`} className={`break-all ${linkClass}`}>
+                  {e.address}
+                  {e.label && <span className="text-white/45"> ({e.label})</span>}
+                </a>
+              </li>
+            ))}
+            {shop.hours && (
+              <li className="flex gap-2.5">
+                <ClockIcon width={18} height={18} className="mt-0.5 shrink-0 text-amil" />
+                <span className="space-y-0.5">
+                  {shop.hours.map((h) => (
+                    <span key={h.days} className="block">
+                      {h.days}: {h.hours}
+                    </span>
+                  ))}
+                </span>
+              </li>
+            )}
           </ul>
         </div>
       </div>
       <div className="border-t border-charcoal-line">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-white/50">
           <span>
-            © {new Date().getFullYear()} {shop.name}. All rights reserved.
+            © {new Date().getFullYear()} {shop.legalName ?? shop.name}. All rights reserved.
+            {shop.registrationNumber && <> Reg. No. {shop.registrationNumber}.</>}
+            {shop.taxId && <> Tax/VAT No. {shop.taxId}.</>}
           </span>
           <Link href="/admin/login" className="hover:text-white/80">
             Staff login

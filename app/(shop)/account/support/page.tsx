@@ -6,7 +6,7 @@ import { getCustomerVehicles } from "@/lib/customer/vehicles";
 import { getPurchasedPartIds } from "@/lib/customer/fitmentHistory";
 import { getProducts } from "@/lib/shop/data";
 import { INQUIRY_TYPE_LABEL, TICKET_STATUS_LABEL } from "@/lib/shop/config";
-import { formatDateTime } from "@/lib/shop/format";
+import { getFormatters } from "@/lib/shop/siteSettings";
 import SupportTicketForm from "@/components/shop/SupportTicketForm";
 
 export const metadata: Metadata = { title: "Support", robots: { index: false } };
@@ -20,6 +20,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default async function SupportPage() {
   const customer = await getCurrentCustomer();
+  const fmt = await getFormatters();
 
   if (!customer) {
     return (
@@ -73,7 +74,7 @@ export default async function SupportPage() {
                   </div>
                   <p className="mt-1 font-bold text-charcoal">{t.subject}</p>
                   <p className="text-xs text-charcoal/55">
-                    {INQUIRY_TYPE_LABEL[t.inquiryType]} · {formatDateTime(t.createdAt)}
+                    {INQUIRY_TYPE_LABEL[t.inquiryType]} · {fmt.dateTime(t.createdAt)}
                   </p>
                 </Link>
               </li>

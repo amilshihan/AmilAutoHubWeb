@@ -8,6 +8,7 @@ import { cardSurface } from "@/lib/ui";
 import { formatDateTime, formatLKR } from "@/lib/shop/format";
 import { ORDER_STATUSES, ORDER_STATUS_LABEL, PAYMENT_LABEL, PAYMENT_STATUS_LABEL, type OrderStatus } from "@/lib/shop/config";
 import { toWhatsAppNumber, waLink } from "@/lib/shop/whatsapp";
+import { notifyOrderEvent, type OrderEvent } from "@/app/admin/(panel)/orders/actions";
 
 export type AddressSnapshot = {
   recipientName: string;
@@ -131,6 +132,7 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
   const [openId, setOpenId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: orders.length };
@@ -140,15 +142,24 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
 
   const visible = filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
+  // Emails the customer about what just changed; the server decides what (if anything) to send.
+  async function notify(orderId: string, event: OrderEvent) {
+    setNotice(null);
+    const result = await notifyOrderEvent(orderId, event);
+    if (result.message) setNotice({ ok: result.ok, text: result.message });
+  }
+
   async function setPayment(order: OnlineOrder, status: string) {
     setBusyId(order.id);
     setError(null);
     const { error } = await supabase.rpc("set_online_order_payment", { p_order_id: order.id, p_status: status });
-    setBusyId(null);
     if (error) {
+      setBusyId(null);
       setError(error.message);
       return;
     }
+    await notify(order.id, "payment");
+    setBusyId(null);
     router.refresh();
   }
 
@@ -156,11 +167,13 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
     setBusyId(order.id);
     setError(null);
     const { error } = await supabase.rpc("set_online_order_status", { p_order_id: order.id, p_status: status });
-    setBusyId(null);
     if (error) {
+      setBusyId(null);
       setError(error.message);
       return;
     }
+    await notify(order.id, "status");
+    setBusyId(null);
     router.refresh();
   }
 
@@ -207,6 +220,15 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
       {error && (
         <div role="alert" className="rounded-lg border border-error/30 bg-error-light p-3 text-sm text-error">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div
+          role="status"
+          className={`rounded-lg border p-3 text-sm ${notice.ok ? "border-green-300 bg-green-50 text-green-800" : "border-amber-300 bg-amber-50 text-amber-900"}`}
+        >
+          {notice.text}
         </div>
       )}
 
@@ -442,12 +464,28 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                     </div>
 
                     {o.fulfilment === "delivery" && "courier" in o && (
-                      <ShippingEditor order={o} onError={setError} onSaved={() => router.refresh()} />
+                      <ShippingEditor
+                        order={o}
+                        onError={setError}
+                        onSaved={async (trackingChanged) => {
+                          if (trackingChanged) await notify(o.id, "tracking");
+                          router.refresh();
+                        }}
+                      />
                     )}
 
                     {o.status === "cancelled" && <CancellationEditor order={o} onError={setError} onSaved={() => router.refresh()} />}
 
-                    {o.payment_status === "refunded" && <RefundEditor order={o} onError={setError} onSaved={() => router.refresh()} />}
+                    {o.payment_status === "refunded" && (
+                      <RefundEditor
+                        order={o}
+                        onError={setError}
+                        onSaved={async () => {
+                          await notify(o.id, "refund");
+                          router.refresh();
+                        }}
+                      />
+                    )}
 
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
@@ -457,6 +495,17 @@ export default function OnlineOrdersClient({ orders }: { orders: OnlineOrder[] }
                       >
                         Print invoice
                       </Link>
+                      <button
+                        disabled={busyId === o.id}
+                        onClick={async () => {
+                          setBusyId(o.id);
+                          await notify(o.id, "invoice");
+                          setBusyId(null);
+                        }}
+                        className="rounded-lg border border-btn-secondary-border px-4 py-2 text-sm font-semibold text-btn-secondary-text hover:bg-surface disabled:opacity-60"
+                      >
+                        Email invoice to customer
+                      </button>
                       {step && (
                         <button
                           disabled={busyId === o.id}
@@ -534,7 +583,7 @@ function ShippingEditor({
 }: {
   order: OnlineOrder;
   onError: (message: string | null) => void;
-  onSaved: () => void;
+  onSaved: (trackingChanged?: boolean) => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [courier, setCourier] = useState(order.courier ?? "");
@@ -551,6 +600,7 @@ function ShippingEditor({
   async function save() {
     setSaving(true);
     onError(null);
+    const trackingChanged = courier.trim() !== (order.courier ?? "") || tracking.trim() !== (order.tracking_number ?? "");
     const { error } = await supabase
       .from("online_orders")
       .update({
@@ -563,7 +613,7 @@ function ShippingEditor({
       .eq("id", order.id);
     setSaving(false);
     if (error) onError(error.message);
-    else onSaved();
+    else onSaved(trackingChanged);
   }
 
   const input =
