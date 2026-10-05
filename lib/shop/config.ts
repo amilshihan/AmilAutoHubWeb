@@ -131,6 +131,8 @@ export const ACTIVITY_EVENT_LABEL: Record<string, string> = {
   support_ticket_created: "Support ticket created",
   loyalty_points_changed: "Loyalty points changed",
   account_deleted: "Account deleted",
+  password_reset_requested: "Password reset requested",
+  email_verified: "Email address confirmed",
 };
 
 export const TRANSMISSIONS = ["manual", "automatic", "cvt", "semi_automatic"] as const;

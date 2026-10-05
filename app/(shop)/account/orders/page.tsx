@@ -59,7 +59,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   let trackError: string | null = null;
   if (order && phone) {
     const h = await headers();
-    if (!rateLimit(`track:${clientIp(h)}`, 10, 10 * 60_000)) {
+    if (!(await rateLimit(`track:${clientIp(h)}`, 10, 10 * 60_000))) {
       trackError = "Too many attempts. Please wait a few minutes and try again.";
     } else {
       const found = await findOrder(order, phone);

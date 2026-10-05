@@ -64,9 +64,14 @@ export default function LoginForm({ googleEnabled, initialError }: { googleEnabl
           <input id="email" required type="email" autoComplete="email" className={field} value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div>
-          <label htmlFor="password" className={label}>
-            Password
-          </label>
+          <div className="mb-1 flex items-baseline justify-between">
+            <label htmlFor="password" className="block text-sm font-bold text-charcoal">
+              Password
+            </label>
+            <Link href="/forgot-password" className="text-xs font-semibold text-charcoal/65 underline hover:text-charcoal">
+              Forgot your password?
+            </Link>
+          </div>
           <input
             id="password"
             required

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import PasswordStrengthMeter from "@/components/shop/PasswordStrengthMeter";
 import { registerCustomer } from "@/app/(shop)/register/actions";
 import { GoogleIcon } from "@/components/shop/Icons";
 
@@ -92,11 +93,15 @@ export default function RegisterForm({ googleEnabled, initialReferralCode = "" }
             required
             type="password"
             autoComplete="new-password"
-            minLength={8}
-            placeholder="At least 8 characters"
+            minLength={10}
+            placeholder="At least 10 characters"
             className={field}
             value={form.password}
             onChange={set("password")}
+          />
+          <PasswordStrengthMeter
+            password={form.password}
+            context={{ email: form.email, firstName: form.firstName, lastName: form.lastName, mobile: form.mobile }}
           />
         </div>
         <div>

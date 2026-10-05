@@ -22,7 +22,7 @@ export async function saveCart(name: string, items: { partId: string; qty: numbe
   if (cleanItems.length === 0) return { ok: false, error: "Your cart is empty." };
 
   const h = await headers();
-  if (!rateLimit(`savecart:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`savecart:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment." };
   }
 

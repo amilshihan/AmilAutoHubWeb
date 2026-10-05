@@ -17,7 +17,7 @@ export async function setWishlisted(partId: string, saved: boolean): Promise<Wis
   if (!UUID.test(partId)) return { ok: false, error: "Unknown product." };
 
   const h = await headers();
-  if (!rateLimit(`wishlist:${clientIp(h)}`, 60, 10 * 60_000)) {
+  if (!(await rateLimit(`wishlist:${clientIp(h)}`, 60, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment." };
   }
 

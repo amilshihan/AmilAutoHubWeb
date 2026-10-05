@@ -1,12 +1,16 @@
 "use server";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createCustomerSession, hashPassword } from "@/lib/customer/auth";
-import { isValidEmail, isValidMobile, isValidPassword, normalizeEmail } from "@/lib/customer/validation";
+import { isValidEmail, isValidMobile, normalizeEmail } from "@/lib/customer/validation";
+import { passwordProblem } from "@/lib/customer/passwordPolicy";
 import { clientIp, rateLimit } from "@/lib/shop/rateLimit";
 import { findCustomerByReferralCode, REFERRAL_SIGNUP_BONUS } from "@/lib/customer/loyalty";
 import { logCustomerActivity } from "@/lib/customer/activityLog";
+import { issueVerificationEmail } from "@/lib/customer/verification";
+import { siteUrl } from "@/lib/site";
 
 export type RegisterInput = {
   firstName: string;
@@ -23,7 +27,7 @@ const clean = (s: unknown, max: number) => (typeof s === "string" ? s.trim().sli
 
 export async function registerCustomer(input: RegisterInput): Promise<RegisterResult> {
   const h = await headers();
-  if (!rateLimit(`register:${clientIp(h)}`, 8, 15 * 60_000)) {
+  if (!(await rateLimit(`register:${clientIp(h)}`, 8, 15 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please try again in a few minutes." };
   }
 
@@ -37,7 +41,8 @@ export async function registerCustomer(input: RegisterInput): Promise<RegisterRe
   if (lastName.length < 1) return { ok: false, error: "Please enter your last name." };
   if (!isValidEmail(email)) return { ok: false, error: "Please enter a valid email address." };
   if (!isValidMobile(mobile)) return { ok: false, error: "Please enter a valid mobile number, e.g. 077 123 4567." };
-  if (!isValidPassword(password)) return { ok: false, error: "Password must be at least 8 characters." };
+  const weak = passwordProblem(password, { email, firstName, lastName, mobile });
+  if (weak) return { ok: false, error: weak };
 
   const admin = createAdminClient();
   const { data: existing } = await admin.from("customer_accounts").select("id").eq("email", email).maybeSingle();
@@ -84,6 +89,9 @@ export async function registerCustomer(input: RegisterInput): Promise<RegisterRe
   const source = clientIp(h);
   await logCustomerActivity({ customerId: created.id as string, eventType: "account_created", source });
   await logCustomerActivity({ customerId: created.id as string, eventType: "login", description: "First login after registration", source });
+
+  const base = await siteUrl();
+  after(() => issueVerificationEmail(created.id as string, base));
 
   await createCustomerSession(created.id as string);
   return { ok: true };

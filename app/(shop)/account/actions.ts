@@ -42,7 +42,7 @@ export async function updateCustomerProfile(input: ProfileInput): Promise<Profil
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`profile:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`profile:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 
@@ -104,7 +104,7 @@ export async function uploadProfilePhoto(formData: FormData): Promise<PhotoResul
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`avatar:${clientIp(h)}`, 10, 10 * 60_000)) {
+  if (!(await rateLimit(`avatar:${clientIp(h)}`, 10, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 
@@ -204,7 +204,7 @@ export async function addAddress(input: AddressInput): Promise<AddressResult> {
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`address:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`address:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 
@@ -253,7 +253,7 @@ export async function updateAddress(addressId: string, input: AddressInput): Pro
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`address:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`address:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 
@@ -299,7 +299,7 @@ export async function deleteAddress(addressId: string): Promise<ProfileResult> {
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`address:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`address:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 

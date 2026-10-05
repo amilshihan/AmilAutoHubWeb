@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearCustomerSession, getCurrentCustomer, hashPassword, verifyPassword } from "@/lib/customer/auth";
-import { isValidPassword } from "@/lib/customer/validation";
+import { passwordProblem } from "@/lib/customer/passwordPolicy";
 import { clientIp, rateLimit } from "@/lib/shop/rateLimit";
 import { logCustomerActivity } from "@/lib/customer/activityLog";
 
@@ -14,14 +14,15 @@ export async function changePassword(currentPassword: string, newPassword: strin
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`password:${clientIp(h)}`, 8, 15 * 60_000)) {
+  if (!(await rateLimit(`password:${clientIp(h)}`, 8, 15 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please try again in a few minutes." };
   }
 
   if (customer.authProvider !== "password") {
     return { ok: false, error: "Your account signs in with Google, so there's no password to change." };
   }
-  if (!isValidPassword(newPassword)) return { ok: false, error: "New password must be at least 8 characters." };
+  const weak = passwordProblem(newPassword, { email: customer.email, firstName: customer.firstName, lastName: customer.lastName, mobile: customer.mobile ?? undefined });
+  if (weak) return { ok: false, error: weak };
 
   const admin = createAdminClient();
   const { data } = await admin.from("customer_accounts").select("password_hash").eq("id", customer.id).maybeSingle();
@@ -42,7 +43,7 @@ export async function deleteAccount(password: string): Promise<SecurityResult> {
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`delete-account:${clientIp(h)}`, 5, 15 * 60_000)) {
+  if (!(await rateLimit(`delete-account:${clientIp(h)}`, 5, 15 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please try again in a few minutes." };
   }
 

@@ -95,7 +95,7 @@ export async function addVehicle(input: VehicleInput): Promise<VehicleResult> {
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`vehicle:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`vehicle:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 
@@ -140,7 +140,7 @@ export async function updateVehicle(vehicleId: string, input: VehicleInput): Pro
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`vehicle:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`vehicle:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 
@@ -181,7 +181,7 @@ export async function deleteVehicle(vehicleId: string): Promise<SimpleResult> {
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`vehicle:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`vehicle:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 
@@ -198,7 +198,7 @@ export async function uploadVehiclePhoto(vehicleId: string, formData: FormData):
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`vehicle-photo:${clientIp(h)}`, 10, 10 * 60_000)) {
+  if (!(await rateLimit(`vehicle-photo:${clientIp(h)}`, 10, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 
