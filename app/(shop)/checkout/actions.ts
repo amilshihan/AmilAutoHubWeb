@@ -36,7 +36,7 @@ export type PlaceOrderInput = {
 
 export type PlaceOrderResult =
   | { ok: true; token: string; orderNumber: string }
-  | { ok: false; error: string; unavailable?: boolean };
+  | { ok: false; error: string; unavailable?: boolean; signInRequired?: boolean };
 
 // Postgres exceptions come back as "message" text; show the customer-facing sentence only.
 function couponError(message: string) {
@@ -50,6 +50,11 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
   if (!(await rateLimit(`order:${clientIp(h)}`, 6, 10 * 60_000))) {
     return { ok: false, error: "Too many orders from this connection. Please try again in a few minutes or order via WhatsApp." };
   }
+
+  // Orders need a signed-in customer. The checkout page enforces this too, but this is the check
+  // that counts: the form could be bypassed by calling the action directly.
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to place your order.", signInRequired: true };
 
   const name = clean(input.name, 80);
   const phone = clean(input.phone, 20);
@@ -148,8 +153,6 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     if (error) return { ok: false, error: couponError(error.message) };
     discount = Number(data ?? 0);
   }
-
-  const customer = await getCurrentCustomer();
 
   // Redemption is clamped server-side to the customer's real balance and to what's actually
   // owed -- the client's number is only ever a request, never trusted as-is.

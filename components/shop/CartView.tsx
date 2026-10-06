@@ -9,7 +9,7 @@ import SaveCartButton from "@/components/shop/SaveCartButton";
 import { cartMessage, waLink } from "@/lib/shop/whatsapp";
 import { CartIcon, MinusIcon, PlusIcon, TrashIcon, WhatsAppIcon } from "@/components/shop/Icons";
 
-export default function CartView() {
+export default function CartView({ signedIn }: { signedIn: boolean }) {
   const { lines, ready, subtotal, setQty, remove, shop } = useCart();
   const { format } = useCurrency();
 
@@ -102,11 +102,12 @@ export default function CartView() {
           <CurrencyNotice />
           <p className="text-xs text-charcoal/55">Delivery charges are added at checkout. Pickup from Kottawa is free.</p>
           <Link
-            href="/checkout"
+            href={signedIn ? "/checkout" : "/login?next=%2Fcheckout"}
             className="block rounded-lg bg-amil px-5 py-3.5 text-center text-sm font-extrabold uppercase tracking-wide text-charcoal hover:bg-amil-hover"
           >
-            Checkout
+            {signedIn ? "Checkout" : "Sign in to checkout"}
           </Link>
+          {!signedIn && <p className="-mt-2 text-center text-xs text-charcoal/55">You need an account to place an order. Your cart stays saved.</p>}
           <a
             href={waLink(shop.whatsapp, cartMessage(lines, subtotal))}
             target="_blank"
