@@ -14,7 +14,3 @@ export function isValidMobile(mobile: string): boolean {
   const digits = mobile.replace(/\D/g, "");
   return digits.length >= 9 && digits.length <= 12;
 }
-
-export function isValidPassword(password: string): boolean {
-  return password.length >= 8 && password.length <= 200;
-}

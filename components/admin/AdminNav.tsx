@@ -5,7 +5,13 @@ import { usePathname } from "next/navigation";
 
 type NavItem = { href: string; label: string; admin?: boolean };
 const GROUPS: { title: string; items: NavItem[] }[] = [
-  { title: "Overview", items: [{ href: "/admin", label: "Dashboard" }] },
+  {
+    title: "Overview",
+    items: [
+      { href: "/admin", label: "Dashboard" },
+      { href: "/admin/reports", label: "Reports", admin: true },
+    ],
+  },
   { title: "Sales", items: [{ href: "/admin/orders", label: "Orders" }] },
   {
     title: "Catalog",
@@ -33,7 +39,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Operations",
     items: [
       { href: "/admin/bookings", label: "Service bookings" },
-      { href: "/admin/store", label: "Store settings", admin: true },
+      { href: "/admin/store", label: "Website settings", admin: true },
     ],
   },
 ];

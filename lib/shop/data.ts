@@ -2,11 +2,13 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ttlCache } from "@/lib/shop/cache";
 import { getStoreSettings } from "@/lib/shop/settings";
-import { COLLECTIONS, type CollectionSlug } from "@/lib/shop/collections";
+import { getSiteSettings } from "@/lib/shop/siteSettings";
+import { hoursSummary } from "@/lib/shop/site-settings-types";
+import { COLLECTIONS, resolveSubcategory, type CollectionSlug } from "@/lib/shop/collections";
 import { SHOP_FALLBACK } from "@/lib/shop/config";
 import { mergeVehicleCatalog, type VehicleCatalog } from "@/lib/shop/vehicles";
 import { toWhatsAppNumber } from "@/lib/shop/whatsapp";
-import type { PublicProduct, ShopInfo } from "@/lib/shop/types";
+import type { PublicMedia, PublicProduct, ShopInfo } from "@/lib/shop/types";
 
 // All public reads go through the service-role client on the server and are mapped through
 // toPublicProduct(), which whitelists fields. Cost prices, margins and suppliers never leave here.
@@ -98,6 +100,8 @@ function toPublicProduct(
   const retail = num(p.retail_price);
   const hasDiscount = retail > price;
   const id = String(p.id);
+  const collection = assignCollection(name, path);
+  const subcategory = resolveSubcategory(collection, name, str(p.subcategory));
 
   return {
     id,
@@ -111,11 +115,18 @@ function toPublicProduct(
     lowStock: qty > 0 && p.low_stock_warning_enabled !== false && qty <= num(p.low_stock_threshold),
     unit: str(p.unit) ?? "pcs",
     packSize: str(p.pack_size),
-    brand: deriveBrand(path),
+    brand: str(p.brand) ?? deriveBrand(path),
     categoryPath: path,
-    collection: assignCollection(name, path),
+    collection,
     imageUrl: safeImageUrl(p.image_url),
     featured: p.is_featured === true,
+    isNew: p.is_new === true,
+    bestseller: p.is_bestseller === true,
+    productCode: str(p.product_code),
+    productType: str(p.product_type),
+    subcategory: subcategory?.label ?? str(p.subcategory),
+    subcategorySlug: subcategory?.slug ?? null,
+    shortDescription: str(p.short_description),
     compat: (compat.get(id) ?? []).map(compatLabel),
   };
 }
@@ -182,6 +193,7 @@ export type SortKey = "relevance" | "price-asc" | "price-desc" | "name" | "disco
 export type ShopQuery = {
   q?: string;
   collection?: CollectionSlug;
+  subcategory?: string;
   brand?: string;
   inStock?: boolean;
   min?: number;
@@ -202,13 +214,14 @@ export type QueryResult = {
   pages: number;
   brandFacets: { name: string; count: number }[];
   collectionFacets: { slug: CollectionSlug; count: number }[];
+  subcategoryFacets: { slug: string; count: number }[];
   verifiedFitIds: Set<string>;
 };
 
 const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 function haystack(p: PublicProduct) {
-  const text = [p.name, p.brand, p.sku, p.description, p.categoryPath.join(" "), p.compat.join(" ")]
+  const text = [p.name, p.brand, p.sku, p.productCode, p.productType, p.subcategory, p.shortDescription, p.description, p.categoryPath.join(" "), p.compat.join(" ")]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -262,6 +275,10 @@ export async function queryProducts(query: ShopQuery): Promise<QueryResult> {
 
   if (query.collection) list = list.filter((p) => p.collection === query.collection);
 
+  const subcategoryCounts = new Map<string, number>();
+  for (const p of list) if (p.subcategorySlug) subcategoryCounts.set(p.subcategorySlug, (subcategoryCounts.get(p.subcategorySlug) ?? 0) + 1);
+  if (query.subcategory) list = list.filter((p) => p.subcategorySlug === query.subcategory);
+
   const brandCounts = new Map<string, number>();
   for (const p of list) if (p.brand) brandCounts.set(p.brand, (brandCounts.get(p.brand) ?? 0) + 1);
 
@@ -293,6 +310,7 @@ export async function queryProducts(query: ShopQuery): Promise<QueryResult> {
     pages,
     brandFacets: [...brandCounts].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name)),
     collectionFacets: COLLECTIONS.map((c) => ({ slug: c.slug, count: collectionCounts.get(c.slug) ?? 0 })),
+    subcategoryFacets: [...subcategoryCounts].map(([slug, count]) => ({ slug, count })),
     verifiedFitIds,
   };
 }
@@ -394,17 +412,47 @@ export async function getProducts(ids: string[]): Promise<PublicProduct[]> {
   return out;
 }
 
+// Images (primary first, then in the admin's order) followed by the video, if any.
+export async function getProductMedia(partId: string): Promise<PublicMedia[]> {
+  if (!UUID.test(partId)) return [];
+  const admin = createAdminClient();
+  const { data } = await admin.from("product_media").select("*").eq("part_id", partId).order("sort_order").order("created_at");
+  const rows = (data ?? [])
+    .map((r): PublicMedia | null => {
+      const url = safeImageUrl(r.url);
+      if (!url) return null;
+      return {
+        id: String(r.id),
+        mediaType: r.media_type === "video" ? "video" : "image",
+        imageType: r.image_type as PublicMedia["imageType"],
+        url,
+        alt: str(r.alt_text),
+        isPrimary: r.is_primary === true,
+      };
+    })
+    .filter((m): m is PublicMedia => m !== null);
+  const images = rows.filter((m) => m.mediaType === "image").sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary));
+  return [...images, ...rows.filter((m) => m.mediaType === "video")];
+}
+
 // ─── Shop info, vehicles, services ───────────────────────────
 
-export const getShopInfo = ttlCache<ShopInfo>(5 * 60_000, async () => {
+export const getShopInfo = ttlCache<ShopInfo>(30_000, async () => {
   const admin = createAdminClient();
   const { data } = await admin.from("shop_settings").select("shop_name, address, phone").maybeSingle();
-  const phone = str(data?.phone) ?? SHOP_FALLBACK.phone;
-  const settings = await getStoreSettings();
+  const [settings, site] = await Promise.all([getStoreSettings(), getSiteSettings()]);
+  const phone = site.phones[0]?.number ?? str(data?.phone) ?? SHOP_FALLBACK.phone;
   return {
-    name: str(data?.shop_name) ?? SHOP_FALLBACK.legalName,
-    address: str(data?.address) ?? SHOP_FALLBACK.address,
+    name: site.siteName,
+    address: site.address || (str(data?.address) ?? SHOP_FALLBACK.address),
     phone,
+    logoUrl: site.logoUrl || null,
+    phones: site.phones,
+    emails: site.emails,
+    hours: site.showHours ? hoursSummary(site.hours) : null,
+    registrationNumber: site.registrationNumber || null,
+    taxId: site.taxId || null,
+    legalName: site.legalName || null,
     whatsapp: toWhatsAppNumber(settings.whatsappNumber || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || phone),
     pickupLocation: settings.pickupLocation,
   };

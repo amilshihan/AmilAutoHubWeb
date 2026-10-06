@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentCustomer } from "@/lib/customer/auth";
 import { getCustomerLoyalty, REFERRAL_REFERRER_BONUS, REFERRAL_SIGNUP_BONUS } from "@/lib/customer/loyalty";
-import { formatDateTime } from "@/lib/shop/format";
+import { getFormatters } from "@/lib/shop/siteSettings";
 import CopyReferralLink from "@/components/shop/CopyReferralLink";
 
 export const metadata: Metadata = { title: "Rewards", robots: { index: false } };
@@ -17,6 +17,7 @@ const TRANSACTION_LABEL: Record<string, string> = {
 
 export default async function RewardsPage() {
   const customer = await getCurrentCustomer();
+  const fmt = await getFormatters();
 
   if (!customer) {
     return (
@@ -85,7 +86,7 @@ export default async function RewardsPage() {
                 <div>
                   <p className="font-semibold text-charcoal">{t.description ?? TRANSACTION_LABEL[t.type]}</p>
                   <p className="text-xs text-charcoal/50">
-                    {TRANSACTION_LABEL[t.type]} · {formatDateTime(t.createdAt)}
+                    {TRANSACTION_LABEL[t.type]} · {fmt.dateTime(t.createdAt)}
                     {t.orderNumber ? ` · #${t.orderNumber}` : ""}
                   </p>
                 </div>

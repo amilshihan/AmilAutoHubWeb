@@ -5,6 +5,8 @@ import { getCurrentUserAndProfile } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { gatewayStatus } from "@/lib/shop/settings";
 import { normaliseSettings } from "@/lib/shop/settings-types";
+import { normaliseSiteSettings } from "@/lib/shop/site-settings-types";
+import { nowMs } from "@/lib/admin/time";
 import StoreSettingsClient from "@/components/store/StoreSettingsClient";
 
 export default async function OnlineStorePage() {
@@ -12,12 +14,15 @@ export default async function OnlineStorePage() {
   if (!isAdmin(profile)) redirect("/admin");
 
   const supabase = await createClient();
-  const { data, error } = await supabase.from("store_settings").select("*").maybeSingle();
+  const [{ data, error }, siteRes] = await Promise.all([
+    supabase.from("store_settings").select("*").maybeSingle(),
+    supabase.from("site_settings").select("*").maybeSingle(),
+  ]);
 
   if (error) {
     return (
       <div className="p-6 max-w-2xl">
-        <h1 className="text-2xl font-bold text-ink">Online Store</h1>
+        <h1 className="text-2xl font-bold text-ink">Website settings</h1>
         <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-900">
           <p className="font-semibold">Store settings are not set up yet.</p>
           <p className="mt-1">
@@ -39,6 +44,10 @@ export default async function OnlineStorePage() {
   return (
     <StoreSettingsClient
       initial={normaliseSettings(data as Record<string, unknown> | null)}
+      initialSite={normaliseSiteSettings(siteRes.error ? null : (siteRes.data as Record<string, unknown> | null))}
+      siteReady={!siteRes.error}
+      chatbotReady={Boolean(siteRes.data && "chatbot_enabled" in (siteRes.data as Record<string, unknown>))}
+      nowIso={new Date(nowMs()).toISOString()}
       gateways={gatewayStatus()}
       siteUrl={siteUrl}
     />

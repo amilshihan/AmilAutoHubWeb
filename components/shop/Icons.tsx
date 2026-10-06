@@ -93,6 +93,55 @@ export const TrashIcon = (p: P) => (
     <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
   </svg>
 );
+export const CarIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3 14l2-5.5A2 2 0 0 1 6.9 7h10.2a2 2 0 0 1 1.9 1.5L21 14v4H3z" />
+    <path d="M3 13h18" />
+    <circle cx="7.5" cy="18" r="1.6" fill="currentColor" />
+    <circle cx="16.5" cy="18" r="1.6" fill="currentColor" />
+  </svg>
+);
+export const VanIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3 7h11v10H3zM14 10h4l3 3v4h-7" />
+    <circle cx="7.5" cy="17.5" r="1.6" fill="currentColor" />
+    <circle cx="17" cy="17.5" r="1.6" fill="currentColor" />
+  </svg>
+);
+export const BikeIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="6" cy="16" r="3" />
+    <circle cx="18" cy="16" r="3" />
+    <path d="M6 16l4-6h4l4 6M10 10l-1-3H7M14 10l1-3h2" />
+  </svg>
+);
+export const PercentIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m8.5 15.5 7-7" />
+    <circle cx="9" cy="9" r="1" />
+    <circle cx="15" cy="15" r="1" />
+  </svg>
+);
+export const HeadsetIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+    <rect x="3" y="13" width="4" height="6" rx="1.5" />
+    <rect x="17" y="13" width="4" height="6" rx="1.5" />
+    <path d="M19 19c0 1.5-2 2-5 2" />
+  </svg>
+);
+export const ChatIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.5-4.6A8 8 0 1 1 21 12Z" />
+    <path d="M8.5 11h7M8.5 14h4" />
+  </svg>
+);
+export const HeartIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />
+  </svg>
+);
 export const ChevronIcon = (p: P) => (
   <svg {...base(p)}>
     <path d="m9 6 6 6-6 6" />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import PasswordStrengthMeter from "@/components/shop/PasswordStrengthMeter";
 import { changePassword } from "@/app/(shop)/account/security/actions";
 
 const field =
@@ -49,13 +50,14 @@ export default function ChangePasswordForm() {
           id="newPassword"
           type="password"
           required
-          minLength={8}
+          minLength={10}
           autoComplete="new-password"
-          placeholder="At least 8 characters"
+          placeholder="At least 10 characters"
           className={field}
           value={next}
           onChange={(e) => setNext(e.target.value)}
         />
+        <PasswordStrengthMeter password={next} />
       </div>
       <button type="submit" disabled={pending} className="sm:col-span-2 rounded-lg bg-charcoal px-5 py-2.5 text-sm font-bold text-white hover:bg-charcoal-soft disabled:opacity-60">
         {pending ? "Saving..." : "Change password"}

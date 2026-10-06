@@ -3,7 +3,7 @@ import { askAmil, type ChatTurn } from "@/lib/shop/ask";
 import { clientIp, rateLimit } from "@/lib/shop/rateLimit";
 
 export async function POST(request: Request) {
-  if (!rateLimit(`ask:${clientIp(request.headers)}`, 12, 60_000)) {
+  if (!(await rateLimit(`ask:${clientIp(request.headers)}`, 12, 60_000))) {
     return NextResponse.json({ error: "You're asking a lot of questions. Please wait a moment." }, { status: 429 });
   }
 

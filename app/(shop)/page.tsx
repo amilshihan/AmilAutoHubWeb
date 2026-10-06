@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   getBanners,
@@ -9,19 +10,27 @@ import {
 } from "@/lib/shop/data";
 import { COLLECTION_BY_SLUG, COLLECTIONS } from "@/lib/shop/collections";
 import { waLink } from "@/lib/shop/whatsapp";
-import HeroArt from "@/components/shop/HeroArt";
-import VehicleFinder from "@/components/shop/VehicleFinder";
+import HeroVehicleFinder from "@/components/shop/HeroVehicleFinder";
 import HomeBanners from "@/components/shop/HomeBanners";
 import ProductCard from "@/components/shop/ProductCard";
 import {
   ChevronIcon,
   CollectionGlyph,
+  HeadsetIcon,
+  PercentIcon,
   SendIcon,
   ShieldIcon,
   SparkIcon,
   TruckIcon,
   WrenchIcon,
 } from "@/components/shop/Icons";
+
+const HERO_FEATURES = [
+  { label: "Genuine Products", Icon: ShieldIcon },
+  { label: "Islandwide Delivery", Icon: TruckIcon },
+  { label: "Great Offers", Icon: PercentIcon },
+  { label: "Expert Advice", Icon: HeadsetIcon },
+];
 
 function SectionHead({ title, href, cta = "View all" }: { title: string; href?: string; cta?: string }) {
   return (
@@ -56,47 +65,38 @@ export default async function HomePage() {
     <>
       {/* Hero */}
       <section className="relative overflow-hidden bg-charcoal text-white">
-        <div className="absolute inset-0 opacity-[0.06] [background-image:repeating-linear-gradient(135deg,#fff_0,#fff_1px,transparent_1px,transparent_14px)]" />
-        <div className="relative mx-auto grid max-w-7xl items-center gap-8 px-4 pb-28 pt-12 lg:grid-cols-[1.05fr_1fr] lg:pb-32 lg:pt-16">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-widest text-amil">
-              <ShieldIcon width={14} height={14} /> Genuine parts guaranteed
-            </span>
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-              Everything Your <span className="text-amil">Vehicle</span> Needs.
+        <Image
+          src="/brand/hero-bg.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[72%_center] lg:object-right"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-charcoal/95 via-charcoal/75 to-charcoal/30 lg:from-charcoal/90 lg:via-charcoal/40 lg:to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-charcoal/80 to-transparent" />
+        <div className="relative mx-auto max-w-7xl px-4 pb-8 pt-10 sm:pt-14 lg:pb-10 lg:pt-20">
+          <div className="max-w-2xl">
+            <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+              Everything Your <span className="block text-amil">Vehicle Needs.</span>
             </h1>
-            <p className="mt-4 max-w-xl text-base text-white/75 sm:text-lg">
-              Genuine parts, premium lubricants &amp; automotive essentials, delivered islandwide or ready to pick up in
+            <p className="mt-5 max-w-xl text-base text-white/85 sm:text-lg">
+              Genuine parts, premium lubricants &amp; automotive essentials, delivered islandwide or ready for pickup in
               Kottawa.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                href="/shop"
-                className="rounded-lg bg-amil px-7 py-3.5 text-sm font-extrabold uppercase tracking-wide text-charcoal transition-colors hover:bg-amil-hover"
-              >
-                Shop Now
-              </Link>
-              <Link
-                href="#vehicle-finder"
-                className="rounded-lg border border-white/30 px-7 py-3.5 text-sm font-extrabold uppercase tracking-wide text-white transition-colors hover:bg-white/10"
-              >
-                Find My Vehicle
-              </Link>
-            </div>
+            <ul className="mt-7 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+              {HERO_FEATURES.map(({ label, Icon }) => (
+                <li key={label} className="flex items-center gap-2.5 text-sm font-semibold leading-tight text-white/90">
+                  <Icon width={30} height={30} className="shrink-0 text-amil" />
+                  <span>{label}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="mx-auto w-full max-w-xl lg:max-w-none">
-            <HeroArt />
+          <div className="mt-8 lg:mt-12">
+            <HeroVehicleFinder catalog={vehicles} />
           </div>
         </div>
-      </section>
-
-      {/* Vehicle finder, overlapping the hero */}
-      <section id="vehicle-finder" className="relative z-10 mx-auto -mt-20 max-w-7xl scroll-mt-40 px-4 lg:-mt-24">
-        <VehicleFinder
-          catalog={vehicles}
-          title="Find parts for your vehicle"
-          subtitle="Select your vehicle and we'll show what fits."
-        />
       </section>
 
       <HomeBanners banners={banners} />

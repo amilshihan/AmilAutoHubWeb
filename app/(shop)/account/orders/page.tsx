@@ -7,7 +7,9 @@ import { getCustomerOrders } from "@/lib/customer/orders";
 import { getPurchasedPartIds } from "@/lib/customer/fitmentHistory";
 import { getProducts, findOrder } from "@/lib/shop/data";
 import { ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/shop/config";
-import { formatDate, formatLKR } from "@/lib/shop/format";
+import { formatLKR } from "@/lib/shop/format";
+import { getFormatters } from "@/lib/shop/siteSettings";
+import type { Formatters } from "@/lib/shop/datetime";
 import { clientIp, rateLimit } from "@/lib/shop/rateLimit";
 import { PhoneIcon, SearchIcon } from "@/components/shop/Icons";
 import ProductCard from "@/components/shop/ProductCard";
@@ -26,7 +28,7 @@ const BADGE: Record<OrderStatus, string> = {
   cancelled: "bg-slate-200 text-slate-600",
 };
 
-function OrderRow({ order }: { order: { orderNumber: string; publicToken: string; status: OrderStatus; total: number; itemCount: number; createdAt: string } }) {
+function OrderRow({ fmt, order }: { fmt: Formatters; order: { orderNumber: string; publicToken: string; status: OrderStatus; total: number; itemCount: number; createdAt: string } }) {
   return (
     <Link
       href={`/order/${order.publicToken}`}
@@ -35,7 +37,7 @@ function OrderRow({ order }: { order: { orderNumber: string; publicToken: string
       <div>
         <p className="font-bold text-charcoal">#{order.orderNumber}</p>
         <p className="text-xs text-charcoal/55">
-          {order.itemCount} item{order.itemCount === 1 ? "" : "s"} · {formatDate(order.createdAt)}
+          {order.itemCount} item{order.itemCount === 1 ? "" : "s"} · {fmt.date(order.createdAt)}
         </p>
       </div>
       <div className="flex items-center gap-3">
@@ -49,6 +51,7 @@ function OrderRow({ order }: { order: { orderNumber: string; publicToken: string
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ order?: string; phone?: string }> }) {
   const [customer, { order, phone }] = await Promise.all([getCurrentCustomer(), searchParams]);
   if (!customer) redirect("/account");
+  const fmt = await getFormatters();
 
   const [{ current, history }, purchasedIds] = await Promise.all([getCustomerOrders(customer.id), getPurchasedPartIds(customer.id)]);
   const buyAgain = await getProducts(purchasedIds);
@@ -56,7 +59,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   let trackError: string | null = null;
   if (order && phone) {
     const h = await headers();
-    if (!rateLimit(`track:${clientIp(h)}`, 10, 10 * 60_000)) {
+    if (!(await rateLimit(`track:${clientIp(h)}`, 10, 10 * 60_000))) {
       trackError = "Too many attempts. Please wait a few minutes and try again.";
     } else {
       const found = await findOrder(order, phone);
@@ -83,7 +86,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <h2 className="text-lg font-extrabold text-charcoal">Current orders</h2>
         <p className="mt-1 text-sm text-charcoal/60">Orders that haven&apos;t been delivered yet.</p>
         <div className="mt-4 space-y-3">
-          {current.length === 0 ? <p className="text-sm text-charcoal/55">No orders in progress.</p> : current.map((o) => <OrderRow key={o.id} order={o} />)}
+          {current.length === 0 ? <p className="text-sm text-charcoal/55">No orders in progress.</p> : current.map((o) => <OrderRow key={o.id} order={o} fmt={fmt} />)}
         </div>
       </section>
 
@@ -91,7 +94,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <h2 className="text-lg font-extrabold text-charcoal">Order history</h2>
         <p className="mt-1 text-sm text-charcoal/60">Delivered and cancelled orders.</p>
         <div className="mt-4 space-y-3">
-          {history.length === 0 ? <p className="text-sm text-charcoal/55">No past orders yet.</p> : history.map((o) => <OrderRow key={o.id} order={o} />)}
+          {history.length === 0 ? <p className="text-sm text-charcoal/55">No past orders yet.</p> : history.map((o) => <OrderRow key={o.id} order={o} fmt={fmt} />)}
         </div>
       </section>
 

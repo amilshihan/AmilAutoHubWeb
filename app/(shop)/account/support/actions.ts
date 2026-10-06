@@ -16,7 +16,7 @@ export async function createTicket(formData: FormData): Promise<CreateTicketResu
   if (!customer) return { ok: false, error: "Please sign in again." };
 
   const h = await headers();
-  if (!rateLimit(`ticket:${clientIp(h)}`, 10, 10 * 60_000)) {
+  if (!(await rateLimit(`ticket:${clientIp(h)}`, 10, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 

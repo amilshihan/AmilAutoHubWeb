@@ -19,7 +19,23 @@ export type PublicProduct = {
   collection: CollectionSlug;
   imageUrl: string | null;
   featured: boolean;
+  isNew: boolean;
+  bestseller: boolean;
+  productCode: string | null;
+  productType: string | null;
+  subcategory: string | null;
+  subcategorySlug: string | null;
+  shortDescription: string | null;
   compat: string[];
+};
+
+export type PublicMedia = {
+  id: string;
+  mediaType: "image" | "video";
+  imageType: "main" | "gallery" | "label" | "technical" | "video";
+  url: string;
+  alt: string | null;
+  isPrimary: boolean;
 };
 
 export type CartLine = {
@@ -39,4 +55,11 @@ export type ShopInfo = {
   phone: string;
   whatsapp: string;
   pickupLocation: string;
+  logoUrl: string | null;
+  phones: { label: string; number: string }[];
+  emails: { label: string; address: string }[];
+  hours: { days: string; hours: string }[] | null;
+  registrationNumber: string | null;
+  taxId: string | null;
+  legalName: string | null;
 };

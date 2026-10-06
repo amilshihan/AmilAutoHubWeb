@@ -4,7 +4,7 @@ import { getCurrentCustomer } from "@/lib/customer/auth";
 import { getCustomerAddresses } from "@/lib/customer/addresses";
 import { getCustomerVehicles } from "@/lib/customer/vehicles";
 import { logoutCustomer } from "@/app/(shop)/logout/actions";
-import { formatDate, formatDateTime } from "@/lib/shop/format";
+import { getFormatters } from "@/lib/shop/siteSettings";
 import ProfilePhotoUploader from "@/components/shop/ProfilePhotoUploader";
 import ProfileDetailsForm from "@/components/shop/ProfileDetailsForm";
 import ProfileCompletion, { type CompletionItem } from "@/components/shop/ProfileCompletion";
@@ -34,6 +34,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default async function AccountPage() {
   const customer = await getCurrentCustomer();
+  const fmt = await getFormatters();
 
   if (!customer) {
     return (
@@ -85,7 +86,7 @@ export default async function AccountPage() {
           <Row label="Email addresses" value={[customer.email, ...customer.additionalEmails].filter(Boolean).join(", ")} />
           <Row label="Customer type" value={CUSTOMER_TYPE_LABEL[customer.customerType] ?? customer.customerType} />
           <Row label="Sign-in method" value={customer.authProvider === "google" ? "Google" : "Password"} />
-          <Row label="Account created" value={formatDate(customer.createdAt)} />
+          <Row label="Account created" value={fmt.date(customer.createdAt)} />
           <Row label="Account status" value={STATUS_LABEL[customer.status] ?? customer.status} />
           <Row
             label="Email verification"
@@ -95,7 +96,7 @@ export default async function AccountPage() {
             label="Mobile verification"
             value={<span className={customer.mobileVerified ? "text-stock" : "text-charcoal/60"}>{customer.mobileVerified ? "Verified" : "Not verified"}</span>}
           />
-          <Row label="Last login" value={customer.lastLoginAt ? formatDateTime(customer.lastLoginAt) : "-"} />
+          <Row label="Last login" value={customer.lastLoginAt ? fmt.dateTime(customer.lastLoginAt) : "-"} />
         </dl>
 
         <form action={logoutCustomer} className="mt-5">

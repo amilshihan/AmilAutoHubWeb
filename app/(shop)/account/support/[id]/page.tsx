@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentCustomer } from "@/lib/customer/auth";
 import { getCustomerTicket } from "@/lib/customer/support";
 import { INQUIRY_TYPE_LABEL, TICKET_STATUS_LABEL } from "@/lib/shop/config";
-import { formatDateTime } from "@/lib/shop/format";
+import { getFormatters } from "@/lib/shop/siteSettings";
 
 export const metadata: Metadata = { title: "Support ticket", robots: { index: false } };
 
@@ -22,6 +22,7 @@ function isImage(url: string) {
 export default async function SupportTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const customer = await getCurrentCustomer();
   if (!customer) redirect("/account/support");
+  const fmt = await getFormatters();
 
   const { id } = await params;
   const ticket = await getCustomerTicket(id, customer.id);
@@ -38,7 +39,7 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${STATUS_BADGE[ticket.status]}`}>{TICKET_STATUS_LABEL[ticket.status]}</span>
       </div>
       <p className="mt-1 text-sm text-charcoal/55">
-        {ticket.ticketNumber} · {INQUIRY_TYPE_LABEL[ticket.inquiryType]} · Opened {formatDateTime(ticket.createdAt)}
+        {ticket.ticketNumber} · {INQUIRY_TYPE_LABEL[ticket.inquiryType]} · Opened {fmt.dateTime(ticket.createdAt)}
       </p>
 
       <div className="mt-6 rounded-2xl border border-charcoal/10 bg-white p-5 sm:p-6">
@@ -99,7 +100,7 @@ export default async function SupportTicketPage({ params }: { params: Promise<{ 
         <div className="mt-4 rounded-2xl border border-stock/30 bg-stock-soft p-5 sm:p-6">
           <h2 className="text-sm font-bold uppercase tracking-wide text-stock">Resolution</h2>
           <p className="mt-2 whitespace-pre-wrap text-sm text-charcoal">{ticket.resolution}</p>
-          {ticket.closedAt && <p className="mt-2 text-xs text-charcoal/55">Closed {formatDateTime(ticket.closedAt)}</p>}
+          {ticket.closedAt && <p className="mt-2 text-xs text-charcoal/55">Closed {fmt.dateTime(ticket.closedAt)}</p>}
         </div>
       )}
     </div>

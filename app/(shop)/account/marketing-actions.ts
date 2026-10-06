@@ -18,7 +18,7 @@ export async function setMarketingConsent(consentType: string, granted: boolean)
   if (!CONSENT_TYPES.includes(consentType as ConsentType)) return { ok: false, error: "Unknown preference." };
 
   const h = await headers();
-  if (!rateLimit(`consent:${clientIp(h)}`, 30, 10 * 60_000)) {
+  if (!(await rateLimit(`consent:${clientIp(h)}`, 30, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a moment and try again." };
   }
 

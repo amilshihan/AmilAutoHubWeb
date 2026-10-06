@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import CheckoutForm, { type CheckoutPrefill } from "@/components/shop/CheckoutForm";
 import { availablePaymentMethods, getStoreSettings } from "@/lib/shop/settings";
 import { getCurrentCustomer } from "@/lib/customer/auth";
@@ -10,25 +11,28 @@ export const metadata: Metadata = { title: "Checkout" };
 
 export default async function CheckoutPage() {
   const [settings, customer] = await Promise.all([getStoreSettings(), getCurrentCustomer()]);
-  const [addresses, vehicles, loyalty] = customer
-    ? await Promise.all([getCustomerAddresses(customer.id), getCustomerVehicles(customer.id), getCustomerLoyalty(customer.id)])
-    : [[], [], null];
+  // Checkout needs an account; the cart is kept in the browser, so it is still there after signing in.
+  if (!customer) redirect("/login?next=%2Fcheckout");
+
+  const [addresses, vehicles, loyalty] = await Promise.all([
+    getCustomerAddresses(customer.id),
+    getCustomerVehicles(customer.id),
+    getCustomerLoyalty(customer.id),
+  ]);
   const defaultAddress = addresses.find((a) => a.isDefaultShipping) ?? addresses[0];
 
-  const prefill: CheckoutPrefill | undefined = customer
-    ? {
-        name: `${customer.firstName} ${customer.lastName}`.trim(),
-        phone: customer.mobile ?? "",
-        email: customer.email,
-        companyName: defaultAddress?.companyName ?? "",
-        address: defaultAddress?.addressLine1 ?? "",
-        addressLine2: defaultAddress?.addressLine2 ?? "",
-        city: defaultAddress?.city ?? "",
-        district: defaultAddress?.district ?? "",
-        province: defaultAddress?.province ?? "",
-        postalCode: defaultAddress?.postalCode ?? "",
-      }
-    : undefined;
+  const prefill: CheckoutPrefill = {
+    name: `${customer.firstName} ${customer.lastName}`.trim(),
+    phone: customer.mobile ?? "",
+    email: customer.email,
+    companyName: defaultAddress?.companyName ?? "",
+    address: defaultAddress?.addressLine1 ?? "",
+    addressLine2: defaultAddress?.addressLine2 ?? "",
+    city: defaultAddress?.city ?? "",
+    district: defaultAddress?.district ?? "",
+    province: defaultAddress?.province ?? "",
+    postalCode: defaultAddress?.postalCode ?? "",
+  };
 
   return (
     <CheckoutForm

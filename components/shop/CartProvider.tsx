@@ -16,6 +16,7 @@ type CartContextValue = {
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
   clear: () => void;
+  replaceAll: (lines: CartLine[]) => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -119,6 +120,7 @@ export default function CartProvider({ shop, children }: { shop: ShopInfo; child
   }, []);
 
   const clear = useCallback(() => writeCart([]), []);
+  const replaceAll = useCallback((next: CartLine[]) => writeCart(next), []);
 
   const value = useMemo<CartContextValue>(
     () => ({
@@ -132,8 +134,9 @@ export default function CartProvider({ shop, children }: { shop: ShopInfo; child
       setQty,
       remove,
       clear,
+      replaceAll,
     }),
-    [lines, ready, shop, toast, add, setQty, remove, clear]
+    [lines, ready, shop, toast, add, setQty, remove, clear, replaceAll]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

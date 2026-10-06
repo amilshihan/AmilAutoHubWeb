@@ -147,6 +147,9 @@ export default function CheckoutForm({
       if (result.ok) {
         clear();
         router.push(`/order/${result.token}`);
+      } else if (result.signInRequired) {
+        // The session expired while the form was open; the cart is still in the browser.
+        router.push("/login?next=%2Fcheckout");
       } else {
         setError({ message: result.error, unavailable: result.unavailable });
         window.scrollTo({ top: 0, behavior: "smooth" });

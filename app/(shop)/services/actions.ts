@@ -28,7 +28,7 @@ const clean = (s: unknown, max: number) => (typeof s === "string" ? s.trim().sli
 
 export async function bookService(input: BookingInput): Promise<BookingResult> {
   const h = await headers();
-  if (!rateLimit(`booking:${clientIp(h)}`, 5, 10 * 60_000)) {
+  if (!(await rateLimit(`booking:${clientIp(h)}`, 5, 10 * 60_000))) {
     return { ok: false, error: "Too many requests. Please try again in a few minutes or book on WhatsApp." };
   }
 

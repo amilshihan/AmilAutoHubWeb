@@ -16,7 +16,9 @@ export type ActivityEventType =
   | "refund_requested"
   | "support_ticket_created"
   | "loyalty_points_changed"
-  | "account_deleted";
+  | "account_deleted"
+  | "password_reset_requested"
+  | "email_verified";
 
 export type ActivityLogEntry = {
   id: string;

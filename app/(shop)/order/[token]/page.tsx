@@ -12,7 +12,7 @@ import {
   PAYMENT_STATUS_LABEL,
   type OrderStatus,
 } from "@/lib/shop/config";
-import { formatDate, formatDateTime } from "@/lib/shop/format";
+import { getFormatters } from "@/lib/shop/siteSettings";
 import { waLink } from "@/lib/shop/whatsapp";
 import { CheckIcon, WhatsAppIcon } from "@/components/shop/Icons";
 import Money from "@/components/shop/Money";
@@ -30,6 +30,7 @@ export default async function OrderPage({
   const [{ token }, { payment }] = await Promise.all([params, searchParams]);
   const [order, shop, settings] = await Promise.all([getOrderByToken(token), getShopInfo(), getStoreSettings()]);
   if (!order) notFound();
+  const fmt = await getFormatters();
 
   const status = order.status as OrderStatus;
   const cancelled = status === "cancelled";
@@ -68,7 +69,7 @@ export default async function OrderPage({
           {cancelled ? "Order cancelled" : "Thank you for your order"}
         </h1>
         <p className="mt-1 text-charcoal/65">
-          Order <span className="font-extrabold text-charcoal">#{order.orderNumber}</span> · {formatDateTime(order.createdAt)}
+          Order <span className="font-extrabold text-charcoal">#{order.orderNumber}</span> · {fmt.dateTime(order.createdAt)}
         </p>
         {!cancelled && status === "pending" && (
           <p className="mx-auto mt-3 max-w-md text-sm text-charcoal/65">
@@ -200,9 +201,9 @@ export default async function OrderPage({
           {(order.estimatedDeliveryDate || order.actualDeliveryDate) && (
             <p className="mt-2 text-sm text-charcoal/70">
               {order.actualDeliveryDate
-                ? `Delivered ${formatDate(order.actualDeliveryDate)}`
+                ? `Delivered ${fmt.date(order.actualDeliveryDate)}`
                 : order.estimatedDeliveryDate
-                  ? `Estimated delivery ${formatDate(order.estimatedDeliveryDate)}`
+                  ? `Estimated delivery ${fmt.date(order.estimatedDeliveryDate)}`
                   : null}
             </p>
           )}

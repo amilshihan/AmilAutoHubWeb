@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { btnPrimary, btnSecondary, cardSurface, fieldLabel, helperText, inputBase } from "@/lib/ui";
+import { btnPrimary, btnSecondary, cardSurface, fieldLabel, inputBase } from "@/lib/ui";
+import BannerImageUploader from "@/components/admin/BannerImageUploader";
 
 export type Banner = {
   id: string;
@@ -161,9 +162,10 @@ export default function BannersClient({ banners }: { banners: Banner[] }) {
               <input className={`${inputBase} mt-1`} value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="This week only, while stocks last" />
             </div>
             <div className="sm:col-span-2">
-              <label className={fieldLabel}>Image URL (optional)</label>
-              <input className={`${inputBase} mt-1`} value={form.image_url} onChange={(e) => set("image_url", e.target.value)} placeholder="https://…" />
-              <p className={`${helperText} mt-1`}>Wide images (about 1200 × 500) work best. Without one, the banner uses a charcoal background.</p>
+              <label className={fieldLabel}>Banner image (optional)</label>
+              <div className="mt-1">
+                <BannerImageUploader value={form.image_url} onChange={(url) => set("image_url", url)} />
+              </div>
             </div>
             <div>
               <label className={fieldLabel}>Link</label>

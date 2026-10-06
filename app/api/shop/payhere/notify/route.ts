@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendOrderEmail } from "@/lib/email/orderEmail";
 import { paymentStatusFromCode, verifyPayhereNotification } from "@/lib/shop/payhere";
 
 // Server-to-server callback from PayHere after a payment attempt. The signature is verified
@@ -50,6 +51,8 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     })
     .eq("order_id", order.id);
+
+  if (status === "paid" || status === "refunded") after(() => sendOrderEmail(order.id, status === "paid" ? "paid" : "refunded"));
 
   return new NextResponse("OK");
 }

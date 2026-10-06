@@ -5,6 +5,7 @@ import { createCustomerSession } from "@/lib/customer/auth";
 import { exchangeCodeForProfile, googleEnabled } from "@/lib/customer/google";
 import { STATE_COOKIE } from "@/app/api/auth/google/start/route";
 import { logCustomerActivity } from "@/lib/customer/activityLog";
+import { NEXT_COOKIE, safeNext } from "@/lib/customer/redirect";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -18,6 +19,8 @@ export async function GET(request: Request) {
   const store = await cookies();
   const expectedState = store.get(STATE_COOKIE)?.value;
   store.delete(STATE_COOKIE);
+  const destination = safeNext(store.get(NEXT_COOKIE)?.value);
+  store.delete(NEXT_COOKIE);
   if (!code || !state || !expectedState || state !== expectedState) return fail("google_invalid_state");
 
   let profile;
@@ -82,5 +85,5 @@ export async function GET(request: Request) {
   await logCustomerActivity({ customerId: account.id, eventType: "login", source: "google" });
 
   await createCustomerSession(account.id);
-  return NextResponse.redirect(new URL("/account", url));
+  return NextResponse.redirect(new URL(destination, url));
 }

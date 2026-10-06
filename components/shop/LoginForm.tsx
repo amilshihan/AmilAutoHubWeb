@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { loginCustomer } from "@/app/(shop)/login/actions";
 import { GoogleIcon } from "@/components/shop/Icons";
+import { withNext } from "@/lib/customer/redirect";
 
 const field =
   "w-full rounded-lg border border-charcoal/20 bg-white px-3.5 py-2.5 text-sm text-charcoal placeholder:text-charcoal/40 focus:border-charcoal focus:outline-none focus:ring-2 focus:ring-amil/50";
 const label = "mb-1 block text-sm font-bold text-charcoal";
 
-export default function LoginForm({ googleEnabled, initialError }: { googleEnabled: boolean; initialError?: string }) {
+export default function LoginForm({ googleEnabled, initialError, next }: { googleEnabled: boolean; initialError?: string; next: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(initialError ?? null);
@@ -23,7 +24,7 @@ export default function LoginForm({ googleEnabled, initialError }: { googleEnabl
     startTransition(async () => {
       const result = await loginCustomer(email, password);
       if (result.ok) {
-        router.push("/account");
+        router.push(next);
         router.refresh();
       } else {
         setError(result.error);
@@ -34,7 +35,9 @@ export default function LoginForm({ googleEnabled, initialError }: { googleEnabl
   return (
     <div className="mx-auto max-w-md px-4 py-12">
       <h1 className="text-3xl font-extrabold tracking-tight text-charcoal">Sign in</h1>
-      <p className="mt-1 text-charcoal/65">Access your account and order history.</p>
+      <p className="mt-1 text-charcoal/65">
+        {next === "/checkout" ? "Please sign in to place your order. Your cart is saved." : "Access your account and order history."}
+      </p>
 
       <form onSubmit={submit} className="mt-6 space-y-4 rounded-2xl border border-charcoal/10 bg-white p-5 sm:p-6">
         {error && (
@@ -46,7 +49,7 @@ export default function LoginForm({ googleEnabled, initialError }: { googleEnabl
         {googleEnabled && (
           <>
             <a
-              href="/api/auth/google/start"
+              href={withNext("/api/auth/google/start", next)}
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-charcoal/20 bg-white px-5 py-2.5 text-sm font-bold text-charcoal hover:bg-surface"
             >
               <GoogleIcon /> Continue with Google
@@ -64,9 +67,14 @@ export default function LoginForm({ googleEnabled, initialError }: { googleEnabl
           <input id="email" required type="email" autoComplete="email" className={field} value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div>
-          <label htmlFor="password" className={label}>
-            Password
-          </label>
+          <div className="mb-1 flex items-baseline justify-between">
+            <label htmlFor="password" className="block text-sm font-bold text-charcoal">
+              Password
+            </label>
+            <Link href="/forgot-password" className="text-xs font-semibold text-charcoal/65 underline hover:text-charcoal">
+              Forgot your password?
+            </Link>
+          </div>
           <input
             id="password"
             required
@@ -86,7 +94,7 @@ export default function LoginForm({ googleEnabled, initialError }: { googleEnabl
         </button>
         <p className="text-center text-sm text-charcoal/65">
           New here?{" "}
-          <Link href="/register" className="font-bold text-charcoal underline decoration-amil decoration-2 underline-offset-2">
+          <Link href={withNext("/register", next)} className="font-bold text-charcoal underline decoration-amil decoration-2 underline-offset-2">
             Create an account
           </Link>
         </p>

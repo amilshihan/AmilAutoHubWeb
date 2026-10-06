@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WESTERN_PROVINCE_DISTRICTS, type DeliveryZoneId } from "@/lib/shop/config";
 import { availablePaymentMethods, getStoreSettings } from "@/lib/shop/settings";
@@ -10,6 +11,7 @@ import { getCurrentCustomer } from "@/lib/customer/auth";
 import { POINT_VALUE_LKR, REFERRAL_REFERRER_BONUS } from "@/lib/customer/loyalty";
 import { logCustomerActivity } from "@/lib/customer/activityLog";
 import { formatLKR } from "@/lib/shop/format";
+import { sendOrderEmail } from "@/lib/email/orderEmail";
 
 export type PlaceOrderInput = {
   name: string;
@@ -34,7 +36,7 @@ export type PlaceOrderInput = {
 
 export type PlaceOrderResult =
   | { ok: true; token: string; orderNumber: string }
-  | { ok: false; error: string; unavailable?: boolean };
+  | { ok: false; error: string; unavailable?: boolean; signInRequired?: boolean };
 
 // Postgres exceptions come back as "message" text; show the customer-facing sentence only.
 function couponError(message: string) {
@@ -45,9 +47,14 @@ const clean = (s: unknown, max: number) => (typeof s === "string" ? s.trim().sli
 
 export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResult> {
   const h = await headers();
-  if (!rateLimit(`order:${clientIp(h)}`, 6, 10 * 60_000)) {
+  if (!(await rateLimit(`order:${clientIp(h)}`, 6, 10 * 60_000))) {
     return { ok: false, error: "Too many orders from this connection. Please try again in a few minutes or order via WhatsApp." };
   }
+
+  // Orders need a signed-in customer. The checkout page enforces this too, but this is the check
+  // that counts: the form could be bypassed by calling the action directly.
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to place your order.", signInRequired: true };
 
   const name = clean(input.name, 80);
   const phone = clean(input.phone, 20);
@@ -146,8 +153,6 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     if (error) return { ok: false, error: couponError(error.message) };
     discount = Number(data ?? 0);
   }
-
-  const customer = await getCurrentCustomer();
 
   // Redemption is clamped server-side to the customer's real balance and to what's actually
   // owed -- the client's number is only ever a request, never trusted as-is.
@@ -307,6 +312,9 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlaceOrderResu
     });
   }
 
+  // Confirmation email with the invoice; sent after the response so checkout is never slowed or broken by email.
+  after(() => sendOrderEmail(order.id as string, "placed"));
+
   return { ok: true, token: order.public_token as string, orderNumber: order.order_number as string };
 }
 
@@ -315,7 +323,7 @@ export type CouponPreview = { ok: true; code: string; discount: number } | { ok:
 // Preview only: nothing is redeemed until the order is placed.
 export async function previewCoupon(code: string, subtotal: number): Promise<CouponPreview> {
   const h = await headers();
-  if (!rateLimit(`coupon:${clientIp(h)}`, 20, 10 * 60_000)) {
+  if (!(await rateLimit(`coupon:${clientIp(h)}`, 20, 10 * 60_000))) {
     return { ok: false, error: "Too many attempts. Please wait a few minutes." };
   }
   const clean_code = clean(code, 32).toUpperCase();
