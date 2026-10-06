@@ -44,7 +44,7 @@ export default async function PrivacyPage() {
             changes to your details), which we keep for security.
           </li>
           <li>
-            <strong>Ask Amil:</strong> the questions you type into the Ask Amil chat.
+            <strong>Chat assistant and Ask Amil:</strong> the messages you type into the chat assistant and the Ask Amil page. If you ask about an order, the order number and phone number you give are used to find that order. Chats are kept in your browser tab only; we don&apos;t store them on our servers.
           </li>
           <li>
             <strong>Technical data:</strong> your IP address, used to protect the site from abuse.
@@ -92,8 +92,8 @@ export default async function PrivacyPage() {
               <strong>Our technology providers</strong>, who host the website and its database for us (Vercel and Supabase);
             </li>
             <li>
-              <strong>Our AI provider</strong>, which receives the questions you type into Ask Amil so it can answer them. Please do not put personal
-              details such as phone numbers or addresses into the chat;
+              <strong>Our AI provider</strong>, which receives the messages you type into the chat assistant and Ask Amil so it can answer them (and the
+              product, order or shop details it looks up to answer you). Please do not type passwords or card details into the chat;
             </li>
             <li>authorities, where the law requires us to.</li>
           </ul>

@@ -55,6 +55,7 @@ export type SiteSettings = {
   defaultLanguage: LanguageId;
   dateFormat: DateFormat;
   timeFormat: TimeFormat;
+  chatbotEnabled: boolean;
 };
 
 const defaultHours = (): Record<DayKey, HoursEntry> =>
@@ -77,6 +78,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   defaultLanguage: "en",
   dateFormat: "DD/MM/YYYY",
   timeFormat: "12h",
+  chatbotEnabled: true,
 };
 
 const text = (v: unknown, max = 300) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -136,6 +138,7 @@ export function normaliseSiteSettings(row: Record<string, unknown> | null | unde
     defaultLanguage: pick(row.default_language, LANGUAGES.map((l) => l.id), d.defaultLanguage),
     dateFormat: pick(row.date_format, DATE_FORMATS, d.dateFormat),
     timeFormat: pick(row.time_format, TIME_FORMATS, d.timeFormat),
+    chatbotEnabled: row.chatbot_enabled !== false,
   };
 }
 

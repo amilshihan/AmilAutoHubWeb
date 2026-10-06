@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getShopInfo } from "@/lib/shop/data";
 import PolicyPage, { type PolicySection } from "@/components/shop/PolicyPage";
+import { RETURN_EXCLUSIONS, RETURN_WINDOW_DAYS } from "@/lib/shop/policyFacts";
 
 export const metadata: Metadata = {
   title: "Return & Refund Policy",
@@ -18,7 +19,7 @@ export default async function ReturnsPage() {
       heading: "Return window",
       body: (
         <p>
-          You can return a product within <strong>7 days</strong> of receiving it (the day it is delivered to you, or the day you collect it from our
+          You can return a product within <strong>{RETURN_WINDOW_DAYS} days</strong> of receiving it (the day it is delivered to you, or the day you collect it from our
           Kottawa shop).
         </p>
       ),
@@ -40,10 +41,9 @@ export default async function ReturnsPage() {
       heading: "What cannot be returned",
       body: (
         <ul>
-          <li>Engine oils, lubricants, coolants and other fluids once the pack has been opened or used.</li>
-          <li>Electrical and electronic parts once they have been installed.</li>
-          <li>Special-order items that we ordered in specially for you.</li>
-          <li>Products damaged after delivery through misuse, incorrect fitting or accident.</li>
+          {RETURN_EXCLUSIONS.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
         </ul>
       ),
     },
@@ -51,7 +51,7 @@ export default async function ReturnsPage() {
       heading: "Wrong, damaged or faulty items",
       body: (
         <p>
-          If we sent the wrong product, or it arrived damaged or faulty, contact us within the 7-day window. We will arrange a replacement or a refund and
+          If we sent the wrong product, or it arrived damaged or faulty, contact us within the {RETURN_WINDOW_DAYS}-day window. We will arrange a replacement or a refund and
           cover the return cost. Please check the vehicle compatibility on the product page, or ask us, before ordering. A part that was ordered for the
           wrong vehicle can still be returned under the conditions above.
         </p>

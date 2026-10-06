@@ -46,6 +46,7 @@ export default async function OnlineStorePage() {
       initial={normaliseSettings(data as Record<string, unknown> | null)}
       initialSite={normaliseSiteSettings(siteRes.error ? null : (siteRes.data as Record<string, unknown> | null))}
       siteReady={!siteRes.error}
+      chatbotReady={Boolean(siteRes.data && "chatbot_enabled" in (siteRes.data as Record<string, unknown>))}
       nowIso={new Date(nowMs()).toISOString()}
       gateways={gatewayStatus()}
       siteUrl={siteUrl}

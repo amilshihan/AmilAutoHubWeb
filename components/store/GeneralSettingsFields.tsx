@@ -26,11 +26,13 @@ export default function GeneralSettingsFields({
   onChange,
   siteUrlHint,
   nowIso,
+  chatbotReady,
 }: {
   site: SiteSettings;
   onChange: (patch: Partial<SiteSettings>) => void;
   siteUrlHint: string;
   nowIso: string;
+  chatbotReady: boolean;
 }) {
   const setHours = (day: DayKey, patch: Partial<HoursEntry>) => onChange({ hours: { ...site.hours, [day]: { ...site.hours[day], ...patch } } });
   const preview = (() => {
@@ -44,6 +46,31 @@ export default function GeneralSettingsFields({
 
   return (
     <div className="space-y-5">
+      <div className={`${cardSurface} space-y-3 p-5`}>
+        <h2 className={sectionTitle}>Chat assistant</h2>
+        <label className={`flex items-start gap-3 ${chatbotReady ? "cursor-pointer" : "opacity-60"}`}>
+          <input
+            type="checkbox"
+            checked={site.chatbotEnabled}
+            disabled={!chatbotReady}
+            onChange={(e) => onChange({ chatbotEnabled: e.target.checked })}
+            className="mt-1 h-4 w-4 accent-primary"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-ink">Show the chat assistant on the website</span>
+            <span className={helperText}>
+              The chat button that helps customers find parts, check orders and get delivery or return answers. Turn it off and the button disappears and the
+              assistant stops answering (and stops using the AI). Takes effect within about 30 seconds. The Ask Amil page is not affected.
+            </span>
+          </span>
+        </label>
+        {!chatbotReady && (
+          <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+            This switch needs <code className="rounded bg-amber-100 px-1">supabase/migrations/0040_chatbot_switch.sql</code> to be run in the Supabase SQL editor first.
+          </p>
+        )}
+      </div>
+
       <div className={`${cardSurface} space-y-5 p-5`}>
         <h2 className={sectionTitle}>Website identity</h2>
         <div>

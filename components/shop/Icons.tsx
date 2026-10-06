@@ -131,6 +131,12 @@ export const HeadsetIcon = (p: P) => (
     <path d="M19 19c0 1.5-2 2-5 2" />
   </svg>
 );
+export const ChatIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.5-4.6A8 8 0 1 1 21 12Z" />
+    <path d="M8.5 11h7M8.5 14h4" />
+  </svg>
+);
 export const HeartIcon = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />

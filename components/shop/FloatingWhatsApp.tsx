@@ -4,7 +4,8 @@ import { WhatsAppIcon } from "@/components/shop/Icons";
 import { useCart } from "@/components/shop/CartProvider";
 import { waLink } from "@/lib/shop/whatsapp";
 
-export default function FloatingWhatsApp() {
+// "lifted" stacks it above the chat button; without the chat button it sits in the corner.
+export default function FloatingWhatsApp({ lifted = true }: { lifted?: boolean }) {
   const { shop } = useCart();
   return (
     <a
@@ -12,7 +13,7 @@ export default function FloatingWhatsApp() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
-      className="fixed bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-wa text-white shadow-lg shadow-charcoal/30 transition-transform hover:scale-105 hover:bg-wa-hover"
+      className={`fixed ${lifted ? "bottom-[5.25rem]" : "bottom-4"} right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-wa text-white shadow-lg shadow-charcoal/30 transition-transform hover:scale-105 hover:bg-wa-hover`}
     >
       <WhatsAppIcon width={28} height={28} />
     </a>

@@ -8,6 +8,7 @@ import ShopHeader from "@/components/shop/ShopHeader";
 import ShopFooter from "@/components/shop/ShopFooter";
 import CartToast from "@/components/shop/CartToast";
 import FloatingWhatsApp from "@/components/shop/FloatingWhatsApp";
+import ChatWidget from "@/components/shop/ChatWidget";
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSiteSettings();
@@ -22,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ShopLayout({ children }: { children: React.ReactNode }) {
-  const shop = await getShopInfo();
+  const [shop, site] = await Promise.all([getShopInfo(), getSiteSettings()]);
 
   return (
     <CurrencyProvider>
@@ -34,7 +35,8 @@ export default async function ShopLayout({ children }: { children: React.ReactNo
             <ShopFooter shop={shop} />
           </div>
           <CartToast />
-          <FloatingWhatsApp />
+          <FloatingWhatsApp lifted={site.chatbotEnabled} />
+          {site.chatbotEnabled && <ChatWidget />}
         </WishlistProvider>
       </CartProvider>
     </CurrencyProvider>

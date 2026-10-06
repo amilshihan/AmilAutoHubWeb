@@ -29,6 +29,7 @@ export default function StoreSettingsClient({
   initial,
   initialSite,
   siteReady,
+  chatbotReady,
   gateways,
   siteUrl,
   nowIso,
@@ -36,6 +37,7 @@ export default function StoreSettingsClient({
   initial: StoreSettings;
   initialSite: SiteSettings;
   siteReady: boolean;
+  chatbotReady: boolean;
   gateways: { payhere: boolean };
   siteUrl: string;
   nowIso: string;
@@ -90,6 +92,7 @@ export default function StoreSettingsClient({
           default_language: site.defaultLanguage,
           date_format: site.dateFormat,
           time_format: site.timeFormat,
+          ...(chatbotReady ? { chatbot_enabled: site.chatbotEnabled } : {}),
           updated_at: new Date().toISOString(),
         })
         .eq("id", true);
@@ -178,7 +181,7 @@ export default function StoreSettingsClient({
       )}
 
       {tab === "General" && siteReady && (
-        <GeneralSettingsFields site={site} onChange={(patch) => setSite((cur) => ({ ...cur, ...patch }))} siteUrlHint={siteUrl} nowIso={nowIso} />
+        <GeneralSettingsFields site={site} onChange={(patch) => setSite((cur) => ({ ...cur, ...patch }))} siteUrlHint={siteUrl} nowIso={nowIso} chatbotReady={chatbotReady} />
       )}
 
       {tab === "General" && (
